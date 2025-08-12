@@ -1,0 +1,152 @@
+collection: [
+    groupInvitations: [
+        erxKL0ryMaKHdn0C3HHR: [
+            acceptedAt: August 13, 2025 at 3:48:04 AM UTC+8,
+            adminId: "qGWvht2Ko5Tuu08qJHJwGTgeLlJ3",
+            adminName: "Lisa Chuang",
+            createdAt: August 13, 2025 at 3:15:59 AM UTC+8,
+            expiresAt: August 20, 2025 at 3:15:58 AM UTC+8,
+            groupId: "Z9I3BIhjSRtljDT8AvPQ",
+            groupName: "Happy",
+            invitationCode: "pi4ewii2qlme8x9ezo",
+            inviteeEmail: "lisa_chuang@mail2000.com.tw",
+            status: "accepted"
+        ],
+        kTy0NyooFsqk8Gk9ZB6S: [
+            adminId: "qGWvht2Ko5Tuu08qJHJwGTgeLlJ3",
+            adminName: "Lisa Chuang",
+            createdAt: August 13, 2025 at 1:43:38 AM UTC+8,
+            expiresAt: August 20, 2025 at 1:43:37 AM UTC+8,
+            groupId: "Z9I3BIhjSRtljDT8AvPQ",
+            groupName: "Happy",
+            invitationCode: "1w9pp2l6d1lme8tynly",
+            inviteeEmail: "lisa_chuang@mail2000.com.tw",
+            status: "expired"
+        ],
+        sXi2786IQTpZn9NoCwkK: [
+            adminId: "qGWvht2Ko5Tuu08qJHJwGTgeLlJ3",
+            adminName: "Lisa Chuang",
+            createdAt: August 13, 2025 at 3:15:31 AM UTC+8,
+            expiresAt: August 20, 2025 at 3:15:31 AM UTC+8,
+            groupId: "Z9I3BIhjSRtljDT8AvPQ",
+            groupName: "Happy",
+            invitationCode: "wbv7zh2m6l9me8x8u34",
+            inviteeEmail: "lisa_chuang@mail2000.com.tw",
+            status: "expired"
+        ],
+        vwyJtvPyjVzzLyxy5vcx: [
+            acceptedAt: August 13, 2025 at 3:56:31 AM UTC+8,
+            adminId: "qGWvht2Ko5Tuu08qJHJwGTgeLlJ3",
+            adminName: "Lisa Chuang",
+            createdAt: August 13, 2025 at 3:55:33 AM UTC+8,
+            expiresAt: August 20, 2025 at 3:55:33 AM UTC+8,
+            groupId: "Z9I3BIhjSRtljDT8AvPQ",
+            groupName: "Happy",
+            invitationCode: "c3z63kn1a5me8yoax2",
+            inviteeEmail: "lisachuang2000@gmail.com",
+            status: "accepted"
+        ]
+        
+    ],
+    groupMembers: [
+        groupMembers: [
+            fCP3ZHVJOLd56ceRKo2w: [
+                groupId: "Z9I3BIhjSRtljDT8AvPQ",
+                joinedAt: August 13, 2025 at 1:42:59 AM UTC+8,
+                pointsEarned: 0,
+                pointsRedeemed: 0,
+                role: "admin",
+                userEmail: "",
+                userId: "qGWvht2Ko5Tuu08qJHJwGTgeLlJ3",
+                userName: "Lisa Chuang"
+            ],
+            MyA8fPstVujXcONqWgoQ: [
+                groupId: "Z9I3BIhjSRtljDT8AvPQ",
+                joinedAt: August 13, 2025 at 3:48:04 AM UTC+8,
+                pointsEarned: 0,
+                pointsRedeemed: 0,
+                role: "member",
+                userEmail: ""lisa_chuang@mail2000.com.tw",
+                userId: "BlMlYXlIL6NRrif8uZA7DiVMyvk2",
+                userName: "LisaMail"
+            ],
+            qWLrpgAEJQgF6dPAJ4jn: [
+                groupId: "Z9I3BIhjSRtljDT8AvPQ",
+                joinedAt: August 13, 2025 at 3:56:31 AM UTC+8,
+                pointsEarned: 0,
+                pointsRedeemed: 0,
+                role: "member",
+                userEmail: "lisachuang2000@gmail.com",
+                userId: "k2jMaeC6dfMGkqT6C5gFsMo1nbf2",
+                userName: "Lisa Chuang"
+            ]
+        ]
+    ],
+    groupTasks: [
+        3GjBymn1q6eBnLwzHU2N: [
+            createdAt: August 13, 2025 at 5:01:55 AM UTC+8,
+            createdBy: "qGWvht2Ko5Tuu08qJHJwGTgeLlJ3",
+            createdByName: "Lisa Lisa",
+            description: "Put the dishes in the dish washer and activate it.",
+            groupId: "Z9I3BIhjSRtljDT8AvPQ",
+            isActive: true,
+            points: 10,
+            title: "Do the dishes",
+            updatedAt: August 13, 2025 at 5:01:55 AM UTC+8
+        ]
+    ]
+    groups: [
+        Z9I3BIhjSRtljDT8AvPQ: [
+            adminId: "qGWvht2Ko5Tuu08qJHJwGTgeLlJ3",
+            adminName: "Lisa Chuang",
+            code: "SZRE8V",
+            createdAt: August 13, 2025 at 1:42:59 AM UTC+8,
+            description: "This is happy home",
+            isPrivate: false,
+            maxMembers: 10,
+            memberCount: 1,
+            name: "Happy",
+            updatedAt: August 13, 2025 at 1:42:59 AM UTC+8
+        ]
+    ],
+    test: [],
+    users: [
+        BlMlYXlIL6NRrif8uZA7DiVMyvk2: [
+            createdAt: August 13, 2025 at 1:45:57 AM UTC+8,
+            currentPoints: 0,
+            email: "lisa_chuang@mail2000.com.tw"
+            name: "LisaMail",
+            totalEarned: 0,
+            totalRedeemed: 0,
+            updatedAt: August 13, 2025 at 1:45:57 AM UTC+8
+        ],
+        OaUAsIgko1PY8QEpjWBV4TJ8XYU2: [
+            createdAt: August 12, 2025 at 11:42:39 PM UTC+8,
+            currentPoints: 0,
+            email: "lisaaaaa@gmail.com",
+            name: "Lisaaaaa",
+            totalEarned: 0,
+            totalRedeemed: 0,
+            updatedAt: August 12, 2025 at 11:42:39 PM UTC+8
+        ],
+        k2jMaeC6dfMGkqT6C5gFsMo1nbf2: [
+            createdAt: August 12, 2025 at 11:43:26 PM UTC+8,
+            currentPoints: 0,
+            email: "lisachuang2000@gmail.com",
+            name: "Lisa Chuang",
+            totalEarned: 0,
+            totalRedeemed: 0,
+            updatedAt: August 12, 2025 at 11:43:26 PM UTC+8
+        ],
+        qGWvht2Ko5Tuu08qJHJwGTgeLlJ3: [
+            createdAt: August 12, 2025 at 11:40:34 PM UTC+8,
+            currentPoints: 0,
+            email: "lisa@gmail.com",
+            name: "Lisa Chuang",
+            totalEarned: 0,
+            totalRedeemed: 0,
+            updatedAt: August 12, 2025 at 11:40:34 PM UTC+8
+        ]
+
+    ]
+]
