@@ -94,7 +94,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title={isEditing ? 'Edit Task' : 'Create New Task'}
+      title={isEditing ? `Edit Task: ${editingTask?.title}` : 'Create New Task'}
       size="md"
       footer={
         <div className="flex justify-end space-x-3">
@@ -112,6 +112,19 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
       }
     >
       <div className="space-y-4">
+        {isEditing && editingTask && (
+          <div className="bg-blue-50 p-4 rounded-lg border">
+            <h4 className="text-sm font-medium text-blue-900 mb-2">
+              📝 Editing Task:
+            </h4>
+            <div className="text-sm text-blue-800">
+              <p><strong>Current Name:</strong> {editingTask.title}</p>
+              <p><strong>Current Points:</strong> {editingTask.points} points</p>
+              <p><strong>Status:</strong> {editingTask.isActive ? 'Active' : 'Inactive'}</p>
+            </div>
+          </div>
+        )}
+
         {errors.general && (
           <Alert variant="error">
             {errors.general}
@@ -119,17 +132,17 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         )}
 
         <Input
-          label="Task Title"
+          label={isEditing ? `Task Title (Current: "${editingTask?.title}")` : "Task Title"}
           value={values.title}
           onChange={handleChange('title')}
           error={errors.title}
-          placeholder="Enter task title"
+          placeholder={isEditing ? editingTask?.title || "Enter task title" : "Enter task title"}
           required
         />
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Task Description *
+            {isEditing ? `Task Description (Current: "${editingTask?.description?.substring(0, 50)}${(editingTask?.description?.length || 0) > 50 ? '...' : ''}")` : "Task Description"} *
           </label>
           <textarea
             value={values.description}
@@ -140,7 +153,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
               ${errors.description ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}
             `}
             rows={4}
-            placeholder="Describe what needs to be done to complete this task..."
+            placeholder={isEditing ? editingTask?.description || "Describe what needs to be done to complete this task..." : "Describe what needs to be done to complete this task..."}
           />
           {errors.description && (
             <p className="mt-1 text-sm text-red-600">{errors.description}</p>
@@ -148,12 +161,12 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
         </div>
 
         <Input
-          label="Points Reward"
+          label={isEditing ? `Points Reward (Current: ${editingTask?.points} points)` : "Points Reward"}
           type="number"
           value={values.points}
           onChange={handleChange('points')}
           error={errors.points}
-          placeholder="Enter points to award"
+          placeholder={isEditing ? editingTask?.points?.toString() || "Enter points to award" : "Enter points to award"}
           min="1"
           max="10000"
           required

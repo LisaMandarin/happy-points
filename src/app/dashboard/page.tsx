@@ -4,15 +4,15 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { signOut } from '@/lib/auth'
-import { getUserTransactions, addPointsTransaction, PointsTransaction } from '@/lib/firestore'
+import { getUserTransactions, addPointsTransaction } from '@/lib/firestore'
 import { 
   createGroup, 
   joinGroupByCode, 
   getUserGroups, 
   sendGroupInvitations 
 } from '@/lib/groups'
-import { createGroupTask, updateGroupTask } from '@/lib/tasks'
-import { Group, CreateGroupFormData, GroupInvitation, GroupTask } from '@/types'
+import { createGroupTask, updateGroupTask, awardPointsToMember, getTask } from '@/lib/tasks'
+import { Group, CreateGroupFormData, GroupInvitation, GroupTask, GroupMember, PointsTransaction } from '@/types'
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/lib/constants'
 import CreateGroupModal from '@/components/groups/CreateGroupModal'
 import JoinGroupModal from '@/components/groups/JoinGroupModal'
@@ -23,6 +23,9 @@ import ViewMembersModal from '@/components/groups/ViewMembersModal'
 import ProfileSettingsModal from '@/components/ui/ProfileSettingsModal'
 import CreateTaskModal from '@/components/tasks/CreateTaskModal'
 import ManageTasksModal from '@/components/tasks/ManageTasksModal'
+import TaskApplicationModal from '@/components/tasks/TaskApplicationModal'
+import TaskApplicationsModal from '@/components/tasks/TaskApplicationsModal'
+import AwardPointsModal from '@/components/groups/AwardPointsModal'
 import { Button, Alert } from '@/components/ui'
 
 export default function Dashboard() {
@@ -42,7 +45,11 @@ export default function Dashboard() {
   const [showProfileSettingsModal, setShowProfileSettingsModal] = useState(false)
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false)
   const [showManageTasksModal, setShowManageTasksModal] = useState(false)
+  const [showAwardPointsModal, setShowAwardPointsModal] = useState(false)
+  const [showTaskApplicationModal, setShowTaskApplicationModal] = useState(false)
+  const [showTaskApplicationsModal, setShowTaskApplicationsModal] = useState(false)
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
+  const [selectedMember, setSelectedMember] = useState<GroupMember | null>(null)
   const [editingTask, setEditingTask] = useState<GroupTask | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -202,6 +209,50 @@ export default function Dashboard() {
       setErrorMessage(error instanceof Error ? error.message : ERROR_MESSAGES.TASK.UPDATE_FAILED)
       clearMessages()
     }
+  }
+
+  const handleMemberClick = (member: GroupMember) => {
+    setSelectedMember(member)
+    setShowAwardPointsModal(true)
+  }
+
+  const handleAwardPoints = async (memberId: string, taskId: string, points: number) => {
+    if (!selectedGroup || !user || !userProfile || !selectedMember) return
+
+    try {
+      let taskTitle = ''
+      if (taskId) {
+        const task = await getTask(taskId)
+        taskTitle = task?.title || ''
+      }
+
+      await awardPointsToMember(
+        selectedGroup.id,
+        memberId,
+        user.uid,
+        userProfile.name,
+        points,
+        taskId || undefined,
+        taskTitle || undefined
+      )
+      
+      setSuccessMessage(`Successfully awarded ${points} points to ${selectedMember.userName}`)
+      await refreshProfile() // Refresh to update the current user's view if needed
+      clearMessages()
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to award points')
+      clearMessages()
+    }
+  }
+
+  const handleApplicationSubmitted = () => {
+    setSuccessMessage('Task application submitted successfully!')
+    clearMessages()
+  }
+
+  const handleApplicationProcessed = async () => {
+    await refreshProfile() // Refresh to update points if needed
+    await loadTransactions() // Refresh transactions to show new activity
   }
 
   const handleSignOut = async () => {
@@ -420,6 +471,18 @@ export default function Dashboard() {
                             variant="outline"
                             onClick={(e) => {
                               e.stopPropagation()
+                              setSelectedGroup(group)
+                              setShowTaskApplicationsModal(true)
+                            }}
+                            title="Review Applications"
+                          >
+                            📋✅
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation()
                               openManageInvitationsModal(group)
                             }}
                             title="Manage Invitations"
@@ -473,9 +536,12 @@ export default function Dashboard() {
           <div className="bg-white shadow rounded-lg p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
             <div className="space-y-3">
-              <button className="w-full text-left px-4 py-3 bg-green-50 hover:bg-green-100 rounded-lg transition duration-200">
-                <div className="font-medium text-green-800">Earn Points</div>
-                <div className="text-sm text-green-600">Complete activities to earn more points</div>
+              <button 
+                onClick={() => setShowTaskApplicationModal(true)}
+                className="w-full text-left px-4 py-3 bg-green-50 hover:bg-green-100 rounded-lg transition duration-200"
+              >
+                <div className="font-medium text-green-800">Apply Points</div>
+                <div className="text-sm text-green-600">Apply for task completion to earn points</div>
               </button>
               <button className="w-full text-left px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition duration-200">
                 <div className="font-medium text-blue-800">Redeem Rewards</div>
@@ -503,7 +569,9 @@ export default function Dashboard() {
                     <div>
                       <div className="font-medium text-gray-900">{transaction.description}</div>
                       <div className="text-sm text-gray-500">
-                        {transaction.createdAt?.toDate?.()?.toLocaleDateString() || 'Recently'}
+                        {transaction.createdAt instanceof Date 
+                          ? transaction.createdAt.toLocaleDateString()
+                          : transaction.createdAt?.toDate?.()?.toLocaleDateString() || 'Recently'}
                       </div>
                     </div>
                     <div className={`font-medium ${
@@ -570,6 +638,7 @@ export default function Dashboard() {
           group={selectedGroup}
           currentUserId={user.uid}
           isAdmin={selectedGroup.adminId === user.uid}
+          onMemberClick={selectedGroup.adminId === user.uid ? handleMemberClick : undefined}
         />
       )}
 
@@ -602,6 +671,43 @@ export default function Dashboard() {
           group={selectedGroup}
           currentUserId={user.uid}
           onEditTask={handleEditTask}
+        />
+      )}
+
+      {selectedGroup && selectedMember && (
+        <AwardPointsModal
+          isOpen={showAwardPointsModal}
+          onClose={() => {
+            setShowAwardPointsModal(false)
+            setSelectedMember(null)
+          }}
+          member={selectedMember}
+          groupId={selectedGroup.id}
+          onAwardPoints={handleAwardPoints}
+        />
+      )}
+
+      {user && userProfile && (
+        <TaskApplicationModal
+          isOpen={showTaskApplicationModal}
+          onClose={() => setShowTaskApplicationModal(false)}
+          userId={user.uid}
+          userName={userProfile.name}
+          onApplicationSubmitted={handleApplicationSubmitted}
+        />
+      )}
+
+      {selectedGroup && user && userProfile && (
+        <TaskApplicationsModal
+          isOpen={showTaskApplicationsModal}
+          onClose={() => {
+            setShowTaskApplicationsModal(false)
+            setSelectedGroup(null)
+          }}
+          group={selectedGroup}
+          adminId={user.uid}
+          adminName={userProfile.name}
+          onApplicationProcessed={handleApplicationProcessed}
         />
       )}
     </div>

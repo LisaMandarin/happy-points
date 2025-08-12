@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore'
-import { AuthError, FormErrors } from '@/types'
-import { ERROR_MESSAGES, AUTH_ERRORS } from '@/lib/constants'
+import { AuthError, FormErrors, AUTH_ERRORS } from '@/types'
+import { ERROR_MESSAGES } from '@/lib/constants'
 
 // Date utilities
 export const formatDate = (date: Date | Timestamp): string => {

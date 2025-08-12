@@ -297,6 +297,10 @@ export const approveTaskCompletion = async (
       throw new Error('Task completion already processed')
     }
 
+    // Get task details to use task title in transaction description
+    const task = await getTask(completion.taskId)
+    const taskTitle = task?.title || 'Unknown Task'
+
     // Use transaction to update completion and award points
     await runTransaction(db, async (transaction) => {
       // Update completion status
@@ -331,13 +335,13 @@ export const approveTaskCompletion = async (
         })
       }
 
-      // Create transaction record
+      // Create transaction record with task title instead of task ID
       const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS)
       const transactionData = {
         userId: completion.userId,
         type: 'earn',
         amount: completion.pointsAwarded,
-        description: `Task completed: ${completion.taskId}`,
+        description: `Task completed: ${taskTitle}`,
         createdAt: serverTimestamp(),
       }
       const newTransactionRef = doc(transactionsRef)
@@ -373,5 +377,93 @@ export const rejectTaskCompletion = async (
   } catch (error) {
     console.error('Error rejecting task completion:', error)
     throw new Error('Failed to reject task completion')
+  }
+}
+
+/**
+ * Award points to a group member (admin only)
+ */
+export const awardPointsToMember = async (
+  groupId: string,
+  memberId: string,
+  adminId: string,
+  adminName: string,
+  points: number,
+  taskId?: string,
+  taskTitle?: string
+): Promise<void> => {
+  try {
+    if (points <= 0) {
+      throw new Error('Points must be greater than 0')
+    }
+
+    // Use transaction to ensure all updates happen atomically
+    await runTransaction(db, async (transaction) => {
+      // Update user's total points
+      const userRef = doc(db, COLLECTIONS.USERS, memberId)
+      transaction.update(userRef, {
+        currentPoints: increment(points),
+        totalEarned: increment(points),
+        updatedAt: serverTimestamp(),
+      })
+
+      // Update group member points
+      const membersRef = collection(db, COLLECTIONS.GROUP_MEMBERS)
+      const memberQuery = query(
+        membersRef,
+        where('groupId', '==', groupId),
+        where('userId', '==', memberId)
+      )
+      const memberSnapshot = await getDocs(memberQuery)
+      
+      if (!memberSnapshot.empty) {
+        const memberDoc = memberSnapshot.docs[0]
+        transaction.update(memberDoc.ref, {
+          pointsEarned: increment(points),
+        })
+      }
+
+      // Create transaction record
+      const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS)
+      let description = `Points awarded by admin: ${adminName}`
+      if (taskTitle) {
+        description = `Task completed: ${taskTitle} (awarded by ${adminName})`
+      }
+      
+      const transactionData = {
+        userId: memberId,
+        type: 'earn',
+        amount: points,
+        description,
+        createdAt: serverTimestamp(),
+      }
+      const newTransactionRef = doc(transactionsRef)
+      transaction.set(newTransactionRef, transactionData)
+
+      // If taskId is provided, create a special admin-approved task completion record
+      if (taskId) {
+        const completionsRef = collection(db, COLLECTIONS.TASK_COMPLETIONS)
+        const completionData = {
+          taskId,
+          groupId,
+          userId: memberId,
+          userName: '', // Will be filled from member data
+          completedAt: serverTimestamp(),
+          pointsAwarded: points,
+          status: 'approved',
+          approvedBy: adminId,
+          approvedByName: adminName,
+          approvedAt: serverTimestamp(),
+        }
+        const newCompletionRef = doc(completionsRef)
+        transaction.set(newCompletionRef, completionData)
+      }
+    })
+  } catch (error) {
+    console.error('Error awarding points to member:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to award points to member')
   }
 }

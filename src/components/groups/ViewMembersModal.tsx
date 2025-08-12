@@ -12,6 +12,7 @@ interface ViewMembersModalProps {
   group: Group
   currentUserId: string
   isAdmin: boolean
+  onMemberClick?: (member: GroupMember) => void
 }
 
 const ViewMembersModal: React.FC<ViewMembersModalProps> = ({
@@ -19,7 +20,8 @@ const ViewMembersModal: React.FC<ViewMembersModalProps> = ({
   onClose,
   group,
   currentUserId,
-  isAdmin
+  isAdmin,
+  onMemberClick
 }) => {
   const [members, setMembers] = useState<GroupMember[]>([])
   const [loading, setLoading] = useState(false)
@@ -97,9 +99,19 @@ const ViewMembersModal: React.FC<ViewMembersModalProps> = ({
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
-                        <h4 className="font-medium text-gray-900">
-                          {member.userName || 'Unknown User'}
-                        </h4>
+                        {isAdmin && !isCurrentUser && onMemberClick ? (
+                          <button
+                            onClick={() => onMemberClick(member)}
+                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline transition duration-200"
+                            title="Click to award points"
+                          >
+                            {member.userName || 'Unknown User'}
+                          </button>
+                        ) : (
+                          <h4 className="font-medium text-gray-900">
+                            {member.userName || 'Unknown User'}
+                          </h4>
+                        )}
                         {getRoleBadge(member.role, isCurrentUser)}
                       </div>
                       

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { signUpWithEmail, signInWithGoogle, signInWithFacebook, signInWithMicrosoft } from '@/lib/auth'
+import { signUpWithEmail, signInWithGoogle } from '@/lib/auth'
 import { ROUTES } from '@/lib/constants'
 
 export default function RegisterPage() {
@@ -76,12 +76,6 @@ export default function RegisterPage() {
       switch (provider.toLowerCase()) {
         case 'google':
           result = await signInWithGoogle()
-          break
-        case 'facebook':
-          result = await signInWithFacebook()
-          break
-        case 'microsoft':
-          result = await signInWithMicrosoft()
           break
         default:
           setErrors({ general: `${provider} authentication not supported` })
