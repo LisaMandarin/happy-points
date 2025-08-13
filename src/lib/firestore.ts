@@ -59,7 +59,13 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
     const userSnap = await getDoc(userRef)
     
     if (userSnap.exists()) {
-      return { id: userSnap.id, ...userSnap.data() } as UserProfile
+      const data = userSnap.data()
+      return { 
+        id: userSnap.id, 
+        ...data,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
+      } as UserProfile
     }
     return null
   } catch (error) {
@@ -79,7 +85,13 @@ export const getUserByEmail = async (email: string): Promise<UserProfile | null>
     
     if (!querySnapshot.empty) {
       const doc = querySnapshot.docs[0]
-      return { id: doc.id, ...doc.data() } as UserProfile
+      const data = doc.data()
+      return { 
+        id: doc.id, 
+        ...data,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt
+      } as UserProfile
     }
     return null
   } catch (error) {
@@ -305,15 +317,21 @@ export const getUserNotifications = async (
     const q = query(
       notificationsRef,
       where('userId', '==', userId),
-      orderBy('createdAt', 'desc'),
       limit(limitCount)
     )
     
     const querySnapshot = await getDocs(q)
-    return querySnapshot.docs.map(doc => ({
+    const notifications = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     }))
+    
+    // Sort by createdAt descending (client-side to avoid index requirement)
+    return notifications.sort((a, b) => {
+      const aDate = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt)
+      const bDate = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt)
+      return bDate.getTime() - aDate.getTime()
+    })
   } catch (error) {
     console.error('Error fetching user notifications:', error)
     return []

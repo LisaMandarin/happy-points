@@ -1,14 +1,15 @@
-import { useAppSelector, useAppDispatch } from '@/store/hooks'
-import { refreshProfile } from '@/store/slices/authSlice'
+import { useAuthStore } from '@/stores/authStore'
 import { AuthContextType } from '@/types'
 
 export const useAuth = (): AuthContextType => {
-  const dispatch = useAppDispatch()
-  const { user, userProfile, loading } = useAppSelector((state) => state.auth)
+  const user = useAuthStore((state) => state.user)
+  const userProfile = useAuthStore((state) => state.userProfile)
+  const loading = useAuthStore((state) => state.loading)
+  const refreshProfile = useAuthStore((state) => state.refreshProfile)
 
   const refreshProfileHandler = async (): Promise<void> => {
     if (user) {
-      await dispatch(refreshProfile(user.uid))
+      await refreshProfile(user.uid)
     }
   }
 

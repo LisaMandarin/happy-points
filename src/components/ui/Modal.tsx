@@ -40,7 +40,7 @@ const Modal: React.FC<ModalProps> = ({
       footer={footer}
       width={getWidth()}
       centered
-      destroyOnClose
+      destroyOnHidden
     >
       {children}
     </AntModal>
