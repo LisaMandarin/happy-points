@@ -29,7 +29,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
       name: '',
       description: '',
       maxMembers: DEFAULT_VALUES.GROUP.DEFAULT_MAX_MEMBERS,
-      isPrivate: false,
+      isPrivate: true, // All groups are now private by default
     },
     validate: (values) => {
       const errors: { [key: string]: string } = {}
@@ -141,24 +141,15 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           helperText={`Min: ${DEFAULT_VALUES.GROUP.MIN_MEMBERS}, Max: ${DEFAULT_VALUES.GROUP.MAX_MEMBERS}`}
         />
 
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="isPrivate"
-            checked={values.isPrivate}
-            onChange={(e) => handleChange('isPrivate')({
-              ...e,
-              target: { ...e.target, value: e.target.checked }
-            } as any)}
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-          />
-          <label htmlFor="isPrivate" className="ml-2 block text-sm text-gray-700">
-            Private Group
-          </label>
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h4 className="text-sm font-medium text-blue-900 mb-2">
+            📧 Invitation-Only Groups
+          </h4>
+          <p className="text-sm text-blue-800">
+            All groups are private and can only be joined through invitations sent by the group admin. 
+            Share invitation links with people you want to join your group.
+          </p>
         </div>
-        <p className="text-sm text-gray-500">
-          Private groups can only be joined by invitation
-        </p>
       </div>
     </Modal>
   )

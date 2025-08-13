@@ -220,6 +220,7 @@ export const addGroupMember = async (
       joinedAt: serverTimestamp(),
       pointsEarned: 0,
       pointsRedeemed: 0,
+      isActive: true,
     }
     
     const docRef = await addDoc(membersRef, memberData)
@@ -273,13 +274,97 @@ export const getGroupMembers = async (groupId: string): Promise<GroupMember[]> =
     
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
+      ...doc.data(),
+      isActive: doc.data().isActive !== false // Default to true for existing members
     })) as GroupMember[]
   } catch (error) {
     console.error('Error fetching group members:', error)
     return []
   }
 }
+
+/**
+ * Get active group members only
+ */
+export const getActiveGroupMembers = async (groupId: string): Promise<GroupMember[]> => {
+  try {
+    const allMembers = await getGroupMembers(groupId)
+    return allMembers.filter(member => member.isActive !== false)
+  } catch (error) {
+    console.error('Error fetching active group members:', error)
+    return []
+  }
+}
+
+/**
+ * Deactivate a member from a group (Admin only)
+ */
+export const deactivateGroupMember = async (
+  groupId: string,
+  memberUserId: string,
+  adminId: string
+): Promise<void> => {
+  try {
+    // Verify admin permissions
+    const group = await getGroup(groupId)
+    if (!group || group.adminId !== adminId) {
+      throw new Error('Unauthorized: Only group admin can deactivate members')
+    }
+
+    // Prevent admin from deactivating themselves
+    if (memberUserId === adminId) {
+      throw new Error('Admin cannot deactivate themselves from the group')
+    }
+
+    // Get the member record to deactivate
+    const member = await getGroupMember(groupId, memberUserId)
+    if (!member) {
+      throw new Error('Member not found in the group')
+    }
+
+    if (!member.isActive) {
+      throw new Error('Member is already deactivated')
+    }
+
+    // Start a transaction to update group stats and deactivate member
+    await runTransaction(db, async (transaction) => {
+      // Get group reference for updating member count
+      const groupRef = doc(db, COLLECTIONS.GROUPS, groupId)
+      
+      // Get member reference for deactivation
+      const memberRef = doc(db, COLLECTIONS.GROUP_MEMBERS, member.id)
+      
+      // Update group member count (subtract 1 for deactivated member)
+      transaction.update(groupRef, {
+        memberCount: increment(-1),
+        updatedAt: serverTimestamp()
+      })
+      
+      // Deactivate the member instead of deleting
+      transaction.update(memberRef, {
+        isActive: false,
+        deactivatedAt: serverTimestamp(),
+        deactivatedBy: adminId
+      })
+    })
+
+    // Log the activity
+    await logActivity(Activities.memberRemoved(adminId, groupId, group.name, member.userName || 'Unknown User'))
+
+  } catch (error) {
+    console.error('Error deactivating group member:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to deactivate member from group')
+  }
+}
+
+/**
+ * Remove a member from a group (Admin only) - Legacy function for backward compatibility
+ * @deprecated Use deactivateGroupMember instead
+ */
+export const removeGroupMember = deactivateGroupMember
 
 /**
  * Send group invitations
@@ -457,6 +542,7 @@ export const acceptInvitation = async (
         joinedAt: serverTimestamp(),
         pointsEarned: 0,
         pointsRedeemed: 0,
+        isActive: true,
       }
       
       transaction.set(newMemberRef, memberData)
@@ -872,6 +958,7 @@ export const approveJoinRequest = async (
         joinedAt: serverTimestamp(),
         pointsEarned: 0,
         pointsRedeemed: 0,
+        isActive: true,
       }
       
       transaction.set(newMemberRef, memberData)

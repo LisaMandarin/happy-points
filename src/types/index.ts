@@ -111,6 +111,7 @@ export interface GroupMember {
   joinedAt: Date | Timestamp
   pointsEarned: number
   pointsRedeemed: number
+  isActive: boolean
 }
 
 export interface GroupInvitation {

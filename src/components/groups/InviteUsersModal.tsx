@@ -12,13 +12,15 @@ interface InviteUsersModalProps {
   onClose: () => void
   onInviteUsers: (emails: string[]) => Promise<GroupInvitation[]>
   groupName: string
+  currentUserEmail?: string
 }
 
 const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
   isOpen,
   onClose,
   onInviteUsers,
-  groupName
+  groupName,
+  currentUserEmail
 }) => {
   const [invitations, setInvitations] = useState<GroupInvitation[]>([])
   const [showInvitations, setShowInvitations] = useState(false)
@@ -57,6 +59,14 @@ const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
       const invalidEmails = emailList.filter(email => !validateEmail(email))
       if (invalidEmails.length > 0) {
         errors.emails = `Invalid email addresses: ${invalidEmails.join(', ')}`
+      }
+
+      // Check if admin is trying to invite themselves
+      if (currentUserEmail) {
+        const adminEmail = emailList.find(email => email.toLowerCase() === currentUserEmail.toLowerCase())
+        if (adminEmail) {
+          errors.emails = 'You cannot invite yourself to the group'
+        }
       }
 
       if (emailList.length > 10) {

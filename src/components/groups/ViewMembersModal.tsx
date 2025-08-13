@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { Modal, Button, LoadingSpinner, Badge, Alert } from '@/components/ui'
 import { Group, GroupMember, UserProfile } from '@/types'
-import { getGroupMembers } from '@/lib/groups'
+import { getGroupMembers, deactivateGroupMember } from '@/lib/groups'
 import { getUserProfile } from '@/lib/firestore'
 import { formatDate, formatPoints } from '@/lib/utils'
 
@@ -28,6 +28,8 @@ const ViewMembersModal: React.FC<ViewMembersModalProps> = ({
   const [memberProfiles, setMemberProfiles] = useState<Map<string, UserProfile>>(new Map())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -65,6 +67,31 @@ const ViewMembersModal: React.FC<ViewMembersModalProps> = ({
     }
   }
 
+  const handleDeactivateMember = async (member: GroupMember) => {
+    if (!window.confirm(`Are you sure you want to deactivate ${member.userName}? They will no longer be able to participate in group activities, but their data will be preserved.`)) {
+      return
+    }
+
+    try {
+      setRemovingMemberId(member.userId)
+      setError(null)
+      
+      await deactivateGroupMember(group.id, member.userId, currentUserId)
+      
+      setSuccessMessage(`${member.userName} has been deactivated`)
+      // Reload members to reflect the change
+      await loadMembers()
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (error) {
+      console.error('Error deactivating member:', error)
+      setError(error instanceof Error ? error.message : 'Failed to deactivate member')
+    } finally {
+      setRemovingMemberId(null)
+    }
+  }
+
   const getRoleBadge = (role: string, isCurrentUser: boolean) => {
     if (role === 'admin') {
       return <Badge variant="info" size="sm">Admin</Badge>
@@ -99,21 +126,37 @@ const ViewMembersModal: React.FC<ViewMembersModalProps> = ({
           </Alert>
         )}
 
+        {successMessage && (
+          <Alert variant="success">
+            {successMessage}
+          </Alert>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center py-8">
             <LoadingSpinner size="lg" />
           </div>
         ) : members.length > 0 ? (
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            {members.map((member) => {
+            {members
+              .filter(member => isAdmin || member.isActive !== false) // Hide deactivated members for non-admins
+              .map((member) => {
               const isCurrentUser = member.userId === currentUserId
+              const isDeactivated = member.isActive === false
               return (
                 <div 
                   key={member.id} 
-                  className={`border rounded-lg p-4 ${
+                  className={`border rounded-lg p-4 relative ${
                     isCurrentUser ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
-                  }`}
+                  } ${isDeactivated ? 'opacity-60' : ''}`}
                 >
+                  {isDeactivated && isAdmin && (
+                    <div className="absolute inset-0 bg-gray-500 bg-opacity-20 rounded-lg flex items-center justify-center">
+                      <div className="bg-gray-700 text-white px-3 py-1 rounded-full text-sm font-medium">
+                        Deactivated
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
@@ -166,6 +209,21 @@ const ViewMembersModal: React.FC<ViewMembersModalProps> = ({
                         </div>
                       )}
                     </div>
+
+                    {/* Deactivate button for admin (only for non-admin members, not current user, and active members) */}
+                    {isAdmin && !isCurrentUser && member.role !== 'admin' && member.isActive !== false && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDeactivateMember(member)}
+                          loading={removingMemberId === member.userId}
+                          className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:border-orange-300"
+                        >
+                          {removingMemberId === member.userId ? 'Deactivating...' : '⏸️ Deactivate Member'}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -188,6 +246,20 @@ const ViewMembersModal: React.FC<ViewMembersModalProps> = ({
             <h4 className="text-sm font-medium text-blue-900 mb-2">
               Group Summary (Admin View):
             </h4>
+            <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+              <div>
+                <span className="text-blue-800 font-medium">
+                  {members.filter(m => m.isActive !== false).length}
+                </span>
+                <span className="text-blue-600 ml-1">Active Members</span>
+              </div>
+              <div>
+                <span className="text-blue-800 font-medium">
+                  {members.filter(m => m.isActive === false).length}
+                </span>
+                <span className="text-blue-600 ml-1">Deactivated</span>
+              </div>
+            </div>
             <div className="grid grid-cols-3 gap-4 text-sm">
               <div>
                 <span className="text-blue-800 font-medium">

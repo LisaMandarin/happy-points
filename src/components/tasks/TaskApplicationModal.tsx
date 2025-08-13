@@ -12,6 +12,7 @@ interface TaskApplicationModalProps {
   userId: string
   userName: string
   onApplicationSubmitted: () => void
+  memberGroupsOnly?: boolean // If true, only show groups where user is member but not admin
 }
 
 const TaskApplicationModal: React.FC<TaskApplicationModalProps> = ({
@@ -19,7 +20,8 @@ const TaskApplicationModal: React.FC<TaskApplicationModalProps> = ({
   onClose,
   userId,
   userName,
-  onApplicationSubmitted
+  onApplicationSubmitted,
+  memberGroupsOnly = false
 }) => {
   const [groups, setGroups] = useState<Group[]>([])
   const [selectedGroupId, setSelectedGroupId] = useState<string>('')
@@ -52,7 +54,13 @@ const TaskApplicationModal: React.FC<TaskApplicationModalProps> = ({
       setLoading(true)
       setError(null)
       const userGroups = await getUserGroups(userId)
-      setGroups(userGroups)
+      
+      // Filter groups based on memberGroupsOnly flag
+      const filteredGroups = memberGroupsOnly 
+        ? userGroups.filter(group => group.adminId !== userId) // Only groups where user is member but not admin
+        : userGroups // All groups user is part of
+        
+      setGroups(filteredGroups)
     } catch (error) {
       console.error('Error loading groups:', error)
       setError('Failed to load groups')

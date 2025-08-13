@@ -16,6 +16,7 @@ interface TaskApplicationsModalProps {
   adminId: string
   adminName: string
   onApplicationProcessed: () => void
+  showProcessedOnly?: boolean
 }
 
 interface TaskCompletionWithTask extends TaskCompletion {
@@ -29,7 +30,8 @@ const TaskApplicationsModal: React.FC<TaskApplicationsModalProps> = ({
   group,
   adminId,
   adminName,
-  onApplicationProcessed
+  onApplicationProcessed,
+  showProcessedOnly = false
 }) => {
   const loadApplications = async (): Promise<TaskCompletionWithTask[]> => {
     const completions = await getGroupTaskCompletions(group.id)

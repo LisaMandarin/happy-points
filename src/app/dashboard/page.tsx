@@ -7,18 +7,18 @@ import { signOut } from '@/lib/auth'
 
 // React Query hooks
 import { useUserTransactions } from '@/hooks/queries/useTransactions'
-import { useUserGroups, useCreateGroup, useJoinGroup, useInviteUsers, useAwardPoints } from '@/hooks/queries/useGroups'
+import { useUserGroups, useCreateGroup, useInviteUsers, useAwardPoints } from '@/hooks/queries/useGroups'
 import { useUserNotifications } from '@/hooks/queries/useNotifications'
+import { useUserPendingItems } from '@/hooks/queries/usePendingItems'
 
 import { Group, CreateGroupFormData } from '@/types'
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import CreateGroupModal from '@/components/groups/CreateGroupModal'
-import JoinGroupModal from '@/components/groups/JoinGroupModal'
 import GroupCard from '@/components/groups/GroupCard'
-import InviteUsersModal from '@/components/groups/InviteUsersModal'
-import ManageInvitationsModal from '@/components/groups/ManageInvitationsModal'
-import ViewMembersModal from '@/components/groups/ViewMembersModal'
+import MemberManagementModal from '@/components/groups/MemberManagementModal'
+import TaskManagementModal from '@/components/groups/TaskManagementModal'
+import PendingActionsPanel from '@/components/groups/PendingActionsPanel'
 import ProfileSettingsModal from '@/components/ui/ProfileSettingsModal'
 import CreateTaskModal from '@/components/tasks/CreateTaskModal'
 import ManageTasksModal from '@/components/tasks/ManageTasksModal'
@@ -26,6 +26,7 @@ import TaskApplicationModal from '@/components/tasks/TaskApplicationModal'
 import TaskApplicationsModal from '@/components/tasks/TaskApplicationsModal'
 import ViewTasksModal from '@/components/tasks/ViewTasksModal'
 import AwardPointsModal from '@/components/groups/AwardPointsModal'
+import QuickGrantPointsModal from '@/components/groups/QuickGrantPointsModal'
 import ReviewJoinRequestsModal from '@/components/groups/ReviewJoinRequestsModal'
 import { Button, Alert } from 'antd'
 
@@ -37,28 +38,23 @@ export default function Dashboard() {
   const { data: transactions = [], isLoading: loadingTransactions } = useUserTransactions(user?.uid, 5)
   const { data: groups = [], isLoading: loadingGroups } = useUserGroups(user?.uid)
   const { data: notifications = [], isLoading: loadingNotifications } = useUserNotifications(user?.uid, 5)
+  const { data: pendingItems = [] } = useUserPendingItems(user?.uid, groups)
 
   // Mutations
   const createGroupMutation = useCreateGroup()
-  const joinGroupMutation = useJoinGroup()
   const inviteUsersMutation = useInviteUsers()
   const awardPointsMutation = useAwardPoints()
 
   // UI state
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false)
-  const [showJoinGroupModal, setShowJoinGroupModal] = useState(false)
-  const [showInviteModal, setShowInviteModal] = useState(false)
-  const [showManageInvitationsModal, setShowManageInvitationsModal] = useState(false)
-  const [showViewMembersModal, setShowViewMembersModal] = useState(false)
+  const [showMemberManagementModal, setShowMemberManagementModal] = useState(false)
+  const [showTaskManagementModal, setShowTaskManagementModal] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
-  const [showCreateTaskModal, setShowCreateTaskModal] = useState(false)
-  const [showEditTaskModal, setShowEditTaskModal] = useState(false)
-  const [showManageTasksModal, setShowManageTasksModal] = useState(false)
   const [showTaskApplicationModal, setShowTaskApplicationModal] = useState(false)
-  const [showTaskApplicationsModal, setShowTaskApplicationsModal] = useState(false)
-  const [showViewTasksModal, setShowViewTasksModal] = useState(false)
   const [showAwardPointsModal, setShowAwardPointsModal] = useState(false)
   const [showReviewJoinRequestsModal, setShowReviewJoinRequestsModal] = useState(false)
+  const [showEditTaskModal, setShowEditTaskModal] = useState(false)
+  const [showQuickGrantPointsModal, setShowQuickGrantPointsModal] = useState(false)
   
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
   const [selectedTask, setSelectedTask] = useState<any>(null)
@@ -94,19 +90,6 @@ export default function Dashboard() {
     }
   }
 
-  const handleJoinGroup = async (groupCode: string) => {
-    if (!user || !userProfile) return
-
-    try {
-      await joinGroupMutation.mutateAsync({ userId: user.uid, userProfile, groupCode })
-      setSuccessMessage('Join request submitted! The group admin will review your request.')
-      setShowJoinGroupModal(false)
-      clearMessages()
-    } catch (error) {
-      setErrorMessage('Failed to submit join request. Please check the group code and try again.')
-      clearMessages()
-    }
-  }
 
   const handleSignOut = async () => {
     try {
@@ -120,36 +103,23 @@ export default function Dashboard() {
   const openGroupModal = (group: Group, modalType: string) => {
     setSelectedGroup(group)
     switch (modalType) {
-      case 'invite':
-        setShowInviteModal(true)
+      case 'member-management':
+        setShowMemberManagementModal(true)
         break
-      case 'manage-invitations':
-        setShowManageInvitationsModal(true)
+      case 'task-management':
+        setShowTaskManagementModal(true)
         break
-      case 'view-members':
-        setShowViewMembersModal(true)
-        break
-      case 'create-task':
-        setShowCreateTaskModal(true)
-        break
-      case 'manage-tasks':
-        setShowManageTasksModal(true)
-        break
-      case 'task-applications':
-        setShowTaskApplicationsModal(true)
+      case 'award-points':
+        setShowAwardPointsModal(true)
         break
       case 'review-requests':
         setShowReviewJoinRequestsModal(true)
-        break
-      case 'view-tasks':
-        setShowViewTasksModal(true)
         break
     }
   }
 
   const handleMemberClick = (member: any) => {
     setSelectedMember(member)
-    setShowViewMembersModal(false)
     setShowAwardPointsModal(true)
   }
 
@@ -243,14 +213,9 @@ export default function Dashboard() {
   }
 
   const closeModals = () => {
-    setShowInviteModal(false)
-    setShowManageInvitationsModal(false)
-    setShowViewMembersModal(false)
-    setShowCreateTaskModal(false)
+    setShowMemberManagementModal(false)
+    setShowTaskManagementModal(false)
     setShowEditTaskModal(false)
-    setShowManageTasksModal(false)
-    setShowTaskApplicationsModal(false)
-    setShowViewTasksModal(false)
     setShowAwardPointsModal(false)
     setShowReviewJoinRequestsModal(false)
     setSelectedGroup(null)
@@ -270,6 +235,12 @@ export default function Dashboard() {
     router.push('/')
     return null
   }
+
+  // Separate groups by user's role
+  const adminGroups = groups.filter(group => group.adminId === user?.uid)
+  const memberGroups = groups.filter(group => group.adminId !== user?.uid)
+  const isAdminOfAnyGroup = adminGroups.length > 0
+  const isMemberOfAnyGroup = memberGroups.length > 0
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -364,25 +335,51 @@ export default function Dashboard() {
                 <div className="p-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
                   <div className="space-y-2">
-                    <Button 
-                      onClick={() => setShowCreateGroupModal(true)}
-                      className="w-full"
-                      type="primary"
-                    >
-                      Create Group
-                    </Button>
-                    <Button 
-                      onClick={() => setShowJoinGroupModal(true)}
-                      className="w-full"
-                    >
-                      Join Group
-                    </Button>
-                    <Button 
-                      onClick={() => setShowTaskApplicationModal(true)}
-                      className="w-full"
-                    >
-                      Apply for Task
-                    </Button>
+                    {groups.length === 0 ? (
+                      <div className="text-center py-4 text-gray-500">
+                        <p>Join or create a group to get started!</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Grant Points button - only for groups where user is admin */}
+                        {isAdminOfAnyGroup && (
+                          <Button 
+                            onClick={() => setShowQuickGrantPointsModal(true)}
+                            className="w-full relative"
+                            type="primary"
+                          >
+                            🎁 Grant Points
+                            {pendingItems.some(item => item.type === 'admin') && (
+                              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+                            )}
+                          </Button>
+                        )}
+                        
+                        {/* Claim Points button - only for groups where user is member but not admin */}
+                        {isMemberOfAnyGroup && (
+                          <Button 
+                            onClick={() => setShowTaskApplicationModal(true)}
+                            className="w-full relative"
+                            type={isAdminOfAnyGroup ? "default" : "primary"}
+                          >
+                            🏆 Claim Points
+                            {pendingItems.some(item => item.type === 'user') && (
+                              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+                            )}
+                          </Button>
+                        )}
+                        
+                        {/* Show helpful info about what each button does */}
+                        <div className="text-xs text-gray-500 space-y-1">
+                          {isAdminOfAnyGroup && (
+                            <p>• Grant Points: Award points to members in groups you admin ({adminGroups.length} group{adminGroups.length !== 1 ? 's' : ''})</p>
+                          )}
+                          {isMemberOfAnyGroup && (
+                            <p>• Claim Points: Apply for tasks in groups where you're a member ({memberGroups.length} group{memberGroups.length !== 1 ? 's' : ''})</p>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -390,9 +387,26 @@ export default function Dashboard() {
 
             {/* Main Content Area */}
             <div className="lg:col-span-2">
+              {/* Pending Actions Panel */}
+              <PendingActionsPanel
+                currentUser={userProfile}
+                groups={groups}
+                onReviewRequests={(group) => openGroupModal(group, 'review-requests')}
+                onViewApplications={(group) => openGroupModal(group, 'task-management')}
+              />
+
               {/* Groups Section */}
               <div className="mb-8">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Groups</h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900">Your Groups</h2>
+                  <Button 
+                    onClick={() => setShowCreateGroupModal(true)}
+                    type="primary"
+                    className="flex items-center"
+                  >
+                    <span className="text-white mr-1">+</span> Create Group
+                  </Button>
+                </div>
                 {loadingGroups ? (
                   <div className="text-center py-4">Loading groups...</div>
                 ) : groups.length === 0 ? (
@@ -407,14 +421,10 @@ export default function Dashboard() {
                         key={group.id}
                         group={group}
                         currentUser={userProfile}
-                        onInviteUsers={() => openGroupModal(group, 'invite')}
-                        onManageInvitations={() => openGroupModal(group, 'manage-invitations')}
-                        onViewMembers={() => openGroupModal(group, 'view-members')}
-                        onCreateTask={() => openGroupModal(group, 'create-task')}
-                        onManageTasks={() => openGroupModal(group, 'manage-tasks')}
-                        onViewApplications={() => openGroupModal(group, 'task-applications')}
+                        onMemberManagement={() => openGroupModal(group, 'member-management')}
+                        onTaskManagement={() => openGroupModal(group, 'task-management')}
+                        onAwardPoints={() => openGroupModal(group, 'award-points')}
                         onReviewRequests={() => openGroupModal(group, 'review-requests')}
-                        onViewTasks={() => openGroupModal(group, 'view-tasks')}
                       />
                     ))}
                   </div>
@@ -497,41 +507,28 @@ export default function Dashboard() {
         onCreateGroup={handleCreateGroup}
       />
 
-      <JoinGroupModal
-        isOpen={showJoinGroupModal}
-        onClose={() => setShowJoinGroupModal(false)}
-        onJoinGroup={handleJoinGroup}
-      />
-
       {selectedGroup && (
         <>
-          <InviteUsersModal
-            isOpen={showInviteModal}
+          <MemberManagementModal
+            isOpen={showMemberManagementModal}
             onClose={closeModals}
+            group={selectedGroup}
+            currentUser={userProfile}
             onInviteUsers={handleInviteUsers}
-            groupName={selectedGroup?.name || ''}
-          />
-          
-          <ManageInvitationsModal
-            isOpen={showManageInvitationsModal}
-            onClose={closeModals}
-            group={selectedGroup}
-            adminName={userProfile?.name || ''}
-          />
-          
-          <ViewMembersModal
-            isOpen={showViewMembersModal}
-            onClose={closeModals}
-            group={selectedGroup}
-            currentUserId={user?.uid}
-            isAdmin={selectedGroup?.adminId === userProfile?.id}
             onMemberClick={handleMemberClick}
           />
           
-          <CreateTaskModal
-            isOpen={showCreateTaskModal}
+          <TaskManagementModal
+            isOpen={showTaskManagementModal}
             onClose={closeModals}
+            group={selectedGroup}
+            currentUser={userProfile}
             onCreateTask={handleCreateTask}
+            onEditTask={handleEditTask}
+            onUpdateTask={handleUpdateTask}
+            onApplicationProcessed={handleApplicationProcessed}
+            onTaskClaimed={handleTaskClaimed}
+            refreshTrigger={taskRefreshTrigger}
           />
           
           <CreateTaskModal
@@ -540,33 +537,6 @@ export default function Dashboard() {
             onCreateTask={handleCreateTask}
             editingTask={selectedTask}
             onUpdateTask={handleUpdateTask}
-          />
-          
-          <ManageTasksModal
-            isOpen={showManageTasksModal}
-            onClose={closeModals}
-            group={selectedGroup}
-            currentUserId={userProfile?.id || ''}
-            onEditTask={handleEditTask}
-            refreshTrigger={taskRefreshTrigger}
-          />
-          
-          <TaskApplicationsModal
-            isOpen={showTaskApplicationsModal}
-            onClose={closeModals}
-            group={selectedGroup}
-            adminId={userProfile?.id || ''}
-            adminName={userProfile?.name || ''}
-            onApplicationProcessed={handleApplicationProcessed}
-          />
-          
-          <ViewTasksModal
-            isOpen={showViewTasksModal}
-            onClose={closeModals}
-            group={selectedGroup}
-            userId={userProfile?.id || ''}
-            userName={userProfile?.name || ''}
-            onTaskClaimed={handleTaskClaimed}
           />
           
           <AwardPointsModal
@@ -609,6 +579,33 @@ export default function Dashboard() {
         userId={userProfile?.id || ''}
         userName={userProfile?.name || ''}
         onApplicationSubmitted={handleApplicationSubmitted}
+        memberGroupsOnly={true}
+      />
+
+      <QuickGrantPointsModal
+        isOpen={showQuickGrantPointsModal}
+        onClose={() => setShowQuickGrantPointsModal(false)}
+        adminGroups={adminGroups}
+        currentUserId={user?.uid || ''}
+        onAwardPoints={async (memberId: string, taskId: string, points: number, groupId?: string) => {
+          if (!userProfile?.id) {
+            throw new Error('User profile not available')
+          }
+          
+          if (!groupId) {
+            throw new Error('Group ID is required')
+          }
+          
+          await awardPointsMutation.mutateAsync({
+            groupId,
+            memberId,
+            adminId: userProfile.id,
+            adminName: userProfile.name,
+            points,
+            taskId: taskId !== 'custom' ? taskId : undefined,
+            taskTitle: undefined
+          })
+        }}
       />
 
       <ProfileSettingsModal

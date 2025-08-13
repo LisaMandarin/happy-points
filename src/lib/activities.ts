@@ -265,6 +265,17 @@ export const Activities = {
     icon: '⚙️',
     data: { field },
   }),
+
+  memberRemoved: (adminId: string, groupId: string, groupName: string, memberName: string): ActivityData => ({
+    userId: adminId,
+    type: 'member_removed',
+    title: 'Member removed',
+    description: `Removed ${memberName} from "${groupName}"`,
+    icon: '👤',
+    groupId,
+    groupName,
+    relatedUserName: memberName,
+  }),
 }
 
 /**
