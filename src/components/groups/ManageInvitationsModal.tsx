@@ -215,9 +215,9 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
                     </>
                   )}
                   {invitation.status === 'accepted' && (
-                    <Badge variant="success">
+                    <div className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
                       ✓ User joined the group
-                    </Badge>
+                    </div>
                   )}
                   {(invitation.status === 'expired' || invitation.status === 'declined') && (
                     <Button

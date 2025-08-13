@@ -1,66 +1,74 @@
 import React from 'react'
+import { Button as AntButton } from 'antd'
+import type { ButtonProps as AntButtonProps } from 'antd'
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends Omit<AntButtonProps, 'type' | 'size' | 'variant'> {
   variant?: 'primary' | 'secondary' | 'danger' | 'outline'
   size?: 'sm' | 'md' | 'lg'
   loading?: boolean
   children: React.ReactNode
+  type?: 'button' | 'submit' | 'reset'
 }
 
 const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
   size = 'md',
   loading = false,
-  disabled,
   children,
   className = '',
+  type,
   ...props
 }) => {
-  const baseClasses = 'inline-flex items-center justify-center font-semibold rounded-lg transition duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2'
-  
-  const variantClasses = {
-    primary: 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500 disabled:bg-blue-400',
-    secondary: 'bg-gray-600 hover:bg-gray-700 text-white focus:ring-gray-500 disabled:bg-gray-400',
-    danger: 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500 disabled:bg-red-400',
-    outline: 'border-2 border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-gray-500 disabled:bg-gray-100 disabled:text-gray-400',
+  const getAntType = (): AntButtonProps['type'] => {
+    switch (variant) {
+      case 'primary':
+        return 'primary'
+      case 'danger':
+        return 'primary'
+      case 'outline':
+        return 'default'
+      case 'secondary':
+      default:
+        return 'default'
+    }
   }
-  
-  const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-6 py-3 text-base',
+
+  const getAntSize = (): AntButtonProps['size'] => {
+    switch (size) {
+      case 'sm':
+        return 'small'
+      case 'lg':
+        return 'large'
+      case 'md':
+      default:
+        return 'middle'
+    }
   }
-  
+
+  const getButtonClass = (): string => {
+    let classes = className
+    
+    if (variant === 'danger') {
+      classes += ' bg-red-600 hover:bg-red-700 border-red-600 hover:border-red-700'
+    } else if (variant === 'secondary') {
+      classes += ' bg-gray-600 hover:bg-gray-700 border-gray-600 hover:border-gray-700 text-white'
+    }
+    
+    return classes
+  }
+
   return (
-    <button
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
-      disabled={disabled || loading}
+    <AntButton
+      type={getAntType()}
+      size={getAntSize()}
+      loading={loading}
+      className={getButtonClass()}
+      danger={variant === 'danger'}
+      htmlType={type}
       {...props}
     >
-      {loading && (
-        <svg
-          className="animate-spin -ml-1 mr-2 h-4 w-4"
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <circle
-            className="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke="currentColor"
-            strokeWidth="4"
-          />
-          <path
-            className="opacity-75"
-            fill="currentColor"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          />
-        </svg>
-      )}
       {children}
-    </button>
+    </AntButton>
   )
 }
 

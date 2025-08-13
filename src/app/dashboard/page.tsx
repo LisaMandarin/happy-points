@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { signOut } from '@/lib/auth'
-import { getUserTransactions, addPointsTransaction } from '@/lib/firestore'
+import { getUserTransactions, addPointsTransaction, getUserNotifications } from '@/lib/firestore'
+import { getUserActivities, getActivityDisplay } from '@/lib/activities'
 import { 
   createGroup, 
   joinGroupByCode, 
@@ -37,6 +38,10 @@ export default function Dashboard() {
   const router = useRouter()
   const [transactions, setTransactions] = useState<PointsTransaction[]>([])
   const [loadingTransactions, setLoadingTransactions] = useState(false)
+  const [activities, setActivities] = useState<any[]>([])
+  const [loadingActivities, setLoadingActivities] = useState(false)
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [loadingNotifications, setLoadingNotifications] = useState(false)
   
   // Group-related state
   const [groups, setGroups] = useState<Group[]>([])
@@ -76,6 +81,8 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       loadTransactions()
+      loadActivities()
+      loadNotifications()
       loadGroups()
     }
   }, [user])
@@ -100,6 +107,34 @@ export default function Dashboard() {
       console.error('Error loading transactions:', error)
     } finally {
       setLoadingTransactions(false)
+    }
+  }
+
+  const loadActivities = async () => {
+    if (!user) return
+    
+    setLoadingActivities(true)
+    try {
+      const userActivities = await getUserActivities(user.uid, 10)
+      setActivities(userActivities)
+    } catch (error) {
+      console.error('Error loading activities:', error)
+    } finally {
+      setLoadingActivities(false)
+    }
+  }
+
+  const loadNotifications = async () => {
+    if (!user) return
+    
+    setLoadingNotifications(true)
+    try {
+      const userNotifications = await getUserNotifications(user.uid, 5)
+      setNotifications(userNotifications)
+    } catch (error) {
+      console.error('Error loading notifications:', error)
+    } finally {
+      setLoadingNotifications(false)
     }
   }
 
@@ -440,6 +475,62 @@ export default function Dashboard() {
                 {errorMessage}
               </Alert>
             )}
+          </div>
+        )}
+
+        {/* Notifications */}
+        {notifications.length > 0 && (
+          <div className="mb-6">
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 rounded-lg">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-medium text-blue-900">📬 Notifications</h3>
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <div className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium">
+                    {notifications.filter(n => !n.read).length} unread
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                {notifications.slice(0, 3).map((notification) => (
+                  <div 
+                    key={notification.id} 
+                    className={`p-3 rounded-lg border ${
+                      notification.read 
+                        ? 'bg-white border-gray-200 text-gray-600' 
+                        : 'bg-blue-100 border-blue-200 text-blue-800'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className={`font-medium text-sm ${notification.read ? 'text-gray-700' : 'text-blue-900'}`}>
+                          {notification.title}
+                        </div>
+                        <div className="text-sm mt-1">
+                          {notification.message}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-2">
+                          {notification.createdAt instanceof Date 
+                            ? notification.createdAt.toLocaleDateString()
+                            : notification.createdAt?.toDate?.()?.toLocaleDateString() || 'Recently'}
+                        </div>
+                      </div>
+                      {!notification.read && (
+                        <div className="ml-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {notifications.length > 3 && (
+                <div className="text-center mt-3">
+                  <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                    View all notifications ({notifications.length})
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -841,123 +932,52 @@ if (isAdmin) {
             const isAdmin = groups.some(group => group.adminId === user?.uid)
             
 if (isAdmin) {
-              // Admin Dashboard - Dashboard Overview Card
+              // Admin Recent Activity only
               return (
-                <div className="bg-white shadow rounded-lg p-6 border-l-4 border-blue-400">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-medium text-gray-900">📊 Dashboard Overview</h3>
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                  </div>
-                  
-                  {loadingAdminData ? (
+                <div className="bg-white shadow rounded-lg p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
+                  {loadingActivities ? (
                     <div className="flex items-center justify-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     </div>
-                  ) : (
-                    <>
-                      {/* Comprehensive Statistics */}
-                      <div className="grid grid-cols-4 gap-3 mb-6">
-                        <div className="text-center p-3 bg-blue-50 rounded-lg">
-                          <div className="text-xl font-bold text-blue-600">{adminTaskStats?.totalActiveTasks || 0}</div>
-                          <div className="text-xs text-blue-700">Active Tasks</div>
-                        </div>
-                        <div className="text-center p-3 bg-green-50 rounded-lg">
-                          <div className="text-xl font-bold text-green-600">{adminGroupStats?.totalMembers || 0}</div>
-                          <div className="text-xs text-green-700">Total Members</div>
-                        </div>
-                        <div className="text-center p-3 bg-purple-50 rounded-lg">
-                          <div className="text-xl font-bold text-purple-600">{adminTaskStats?.completedTasks || 0}</div>
-                          <div className="text-xs text-purple-700">Completed Tasks</div>
-                        </div>
-                        <div className="text-center p-3 bg-indigo-50 rounded-lg">
-                          <div className="text-xl font-bold text-indigo-600">{adminGroupStats?.totalGroups || 0}</div>
-                          <div className="text-xs text-indigo-700">Groups Managed</div>
-                        </div>
-                      </div>
-
-                      {/* Recent Activity Section */}
-                      <div className="mb-6">
-                        <h4 className="text-sm font-semibold text-gray-800 mb-3">📈 Recent Activity</h4>
-                        {loadingTransactions ? (
-                          <div className="flex items-center justify-center py-4">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                          </div>
-                        ) : transactions.length > 0 ? (
-                          <div className="space-y-2 max-h-48 overflow-y-auto">
-                            {transactions.slice(0, 5).map((transaction) => (
-                              <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                <div className="flex items-center space-x-3">
-                                  <div className={`w-2 h-2 rounded-full ${
-                                    transaction.type === 'earn' ? 'bg-green-500' : 'bg-red-500'
-                                  }`}></div>
-                                  <div>
-                                    <div className="text-sm font-medium text-gray-900">{transaction.description}</div>
-                                    <div className="text-xs text-gray-500">
-                                      {transaction.createdAt instanceof Date 
-                                        ? transaction.createdAt.toLocaleDateString()
-                                        : transaction.createdAt?.toDate?.()?.toLocaleDateString() || 'Recently'}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div className={`font-medium text-sm ${
-                                  transaction.type === 'earn' ? 'text-green-600' : 'text-red-600'
-                                }`}>
-                                  {transaction.type === 'earn' ? '+' : '-'}{transaction.amount}pts
-                                </div>
+                  ) : activities.length > 0 ? (
+                    <div className="space-y-3">
+                      {activities.map((activity) => {
+                        const display = getActivityDisplay(activity)
+                        return (
+                          <div key={activity.id} className={`flex items-start space-x-3 p-3 rounded-lg ${display.bgColor}`}>
+                            <div className="text-lg">{display.icon}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className={`font-medium text-sm ${display.color}`}>
+                                {activity.title}
                               </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-4 text-gray-500 bg-gray-50 rounded-lg">
-                            <div className="text-sm">No recent activity</div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Performance Insights */}
-                      <div className="mb-6">
-                        <h4 className="text-sm font-semibold text-gray-800 mb-3">💡 Insights</h4>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                            <div className="text-xs text-emerald-700 font-medium">Recent Growth</div>
-                            <div className="text-sm text-emerald-600">
-                              +{adminGroupStats?.recentJoins || 0} new members this week
+                              <div className="text-sm text-gray-600 mt-1">
+                                {activity.description}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {activity.createdAt instanceof Date 
+                                  ? activity.createdAt.toLocaleDateString()
+                                  : activity.createdAt?.toDate?.()?.toLocaleDateString() || 'Recently'}
+                              </div>
                             </div>
+                            {activity.pointsAmount && (
+                              <div className={`text-sm font-medium ${
+                                activity.type === 'points_earned' || activity.type === 'task_application_approved' 
+                                  ? 'text-green-600' 
+                                  : 'text-red-600'
+                              }`}>
+                                {activity.type === 'points_earned' || activity.type === 'task_application_approved' ? '+' : '-'}
+                                {activity.pointsAmount}pts
+                              </div>
+                            )}
                           </div>
-                          <div className="p-3 bg-sky-50 rounded-lg border border-sky-200">
-                            <div className="text-xs text-sky-700 font-medium">Avg Members/Group</div>
-                            <div className="text-sm text-sky-600">
-                              {adminGroupStats?.averageMembersPerGroup ? 
-                                Math.round(adminGroupStats.averageMembersPerGroup * 10) / 10 : 0} members
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Management Actions */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <Button
-                          onClick={() => {
-                            const adminGroup = groups.find(g => g.adminId === user?.uid)
-                            if (adminGroup) openCreateTaskModal(adminGroup)
-                          }}
-                          variant="outline"
-                          className="border-blue-400 text-blue-600 hover:bg-blue-50"
-                        >
-                          Create New Task
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            const adminGroup = groups.find(g => g.adminId === user?.uid)
-                            if (adminGroup) openViewMembersModal(adminGroup)
-                          }}
-                          variant="outline"
-                          className="border-green-400 text-green-600 hover:bg-green-50"
-                        >
-                          View All Members
-                        </Button>
-                      </div>
-                    </>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      No recent activity. Start earning points!
+                    </div>
                   )}
                 </div>
               )
@@ -966,29 +986,43 @@ if (isAdmin) {
               return (
                 <div className="bg-white shadow rounded-lg p-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
-                  {loadingTransactions ? (
+                  {loadingActivities ? (
                     <div className="flex items-center justify-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     </div>
-                  ) : transactions.length > 0 ? (
+                  ) : activities.length > 0 ? (
                     <div className="space-y-3">
-                      {transactions.map((transaction) => (
-                        <div key={transaction.id} className="flex items-center justify-between py-2 border-b border-gray-200">
-                          <div>
-                            <div className="font-medium text-gray-900">{transaction.description}</div>
-                            <div className="text-sm text-gray-500">
-                              {transaction.createdAt instanceof Date 
-                                ? transaction.createdAt.toLocaleDateString()
-                                : transaction.createdAt?.toDate?.()?.toLocaleDateString() || 'Recently'}
+                      {activities.map((activity) => {
+                        const display = getActivityDisplay(activity)
+                        return (
+                          <div key={activity.id} className={`flex items-start space-x-3 p-3 rounded-lg ${display.bgColor}`}>
+                            <div className="text-lg">{display.icon}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className={`font-medium text-sm ${display.color}`}>
+                                {activity.title}
+                              </div>
+                              <div className="text-sm text-gray-600 mt-1">
+                                {activity.description}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {activity.createdAt instanceof Date 
+                                  ? activity.createdAt.toLocaleDateString()
+                                  : activity.createdAt?.toDate?.()?.toLocaleDateString() || 'Recently'}
+                              </div>
                             </div>
+                            {activity.pointsAmount && (
+                              <div className={`text-sm font-medium ${
+                                activity.type === 'points_earned' || activity.type === 'task_application_approved' 
+                                  ? 'text-green-600' 
+                                  : 'text-red-600'
+                              }`}>
+                                {activity.type === 'points_earned' || activity.type === 'task_application_approved' ? '+' : '-'}
+                                {activity.pointsAmount}pts
+                              </div>
+                            )}
                           </div>
-                          <div className={`font-medium ${
-                            transaction.type === 'earn' ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {transaction.type === 'earn' ? '+' : '-'}{transaction.amount}
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-8 text-gray-500">

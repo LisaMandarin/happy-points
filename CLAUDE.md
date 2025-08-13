@@ -7,8 +7,8 @@ Happy Points is a Next.js/React application for tracking and managing points wit
 - **Framework**: Next.js 14 (App Router) with TypeScript
 - **Database**: Firebase Firestore
 - **Authentication**: Firebase Auth (email/password + Google OAuth)
-- **Styling**: Tailwind CSS
-- **State Management**: React Context API
+- **Styling**: Tailwind CSS with Ant Design components
+- **State Management**: Redux Toolkit with React Redux
 
 ## Project Structure
 ```
@@ -17,8 +17,12 @@ src/
 ├── components/             # React components
 │   ├── groups/            # Group-related components
 │   ├── tasks/             # Task management components
-│   └── ui/                # Reusable UI components
-├── contexts/              # React contexts
+│   └── ui/                # Reusable UI components (Ant Design + Tailwind)
+├── store/                 # Redux store and slices
+│   ├── slices/            # Redux Toolkit slices
+│   ├── index.ts           # Store configuration
+│   ├── hooks.ts           # Typed Redux hooks
+│   └── Provider.tsx       # Redux provider component
 ├── hooks/                 # Custom React hooks
 ├── lib/                   # Utility functions and Firebase setup
 └── types/                 # TypeScript type definitions
@@ -69,6 +73,30 @@ src/
 - `groupTasks` - Tasks created by group admins
 - `taskCompletions` - Task completion records and approval status
 
+## Redux Store Structure
+
+### State Slices
+- **auth** (`authSlice`) - User authentication and profile data
+  - `user` - Firebase User object
+  - `userProfile` - User profile with points data
+  - `loading` - Authentication loading state
+  - `error` - Auth-related errors
+
+- **groups** (`groupSlice`) - Group management state
+  - `groups` - User's groups array
+  - `currentGroup` - Selected group
+  - `groupMembers` - Members of current group
+  - `groupInvitations` - Group invitations
+  - `joinRequests` - Pending join requests
+
+- **tasks** (`taskSlice`) - Task management state
+  - `tasks` - Group tasks array
+  - `taskCompletions` - Task completion records
+  - `currentTask` - Selected task
+
+- **transactions** (`transactionSlice`) - Points transaction history
+  - `transactions` - Points transaction array
+
 ## Important Commands
 - **Development**: `npm run dev`
 - **Build**: `npm run build`
@@ -91,10 +119,16 @@ The app uses Firestore security rules to protect data based on user authenticati
 
 ## Common Development Patterns
 
+### Redux State Management
+- `useAppDispatch` - Typed Redux dispatch hook (`/src/store/hooks.ts`)
+- `useAppSelector` - Typed Redux selector hook (`/src/store/hooks.ts`)
+- `useAuth` - Convenient wrapper for auth state from Redux (`/src/hooks/useAuth.ts`)
+
 ### Custom Hooks
-- `useAuth` - Authentication state and user profile
 - `useForm` - Form handling with validation
 - `useAsyncOperation` - Async operations with loading states
+- `useModalData` - Generic hook for modal data loading with error handling
+- `useApproveReject` - Reusable hook for approve/reject operations
 
 ### Error Handling
 - Centralized error messages in `src/lib/constants.ts`
@@ -109,6 +143,12 @@ All modals follow a consistent pattern:
 - Loading states during async operations
 
 ## Recent Changes
+- **State Management Migration**: Migrated from React Context API to Redux Toolkit
+- **UI Framework Integration**: Added Ant Design components while maintaining Tailwind CSS for primary styling
+- **Component Updates**: Updated Button, Input, Modal, Alert, and Badge components to use Ant Design
+- **Redux Store**: Implemented 4 Redux slices (auth, groups, tasks, transactions) for centralized state management
+- **Typed Hooks**: Added `useAppDispatch` and `useAppSelector` for type-safe Redux usage
+- **Authentication**: Migrated auth state from React Context to Redux with async thunks
 - Added comprehensive task management system
 - Implemented task creation and management for group admins
 - Added task completion workflow with admin approval

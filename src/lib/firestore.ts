@@ -69,6 +69,26 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
 }
 
 /**
+ * Get user profile by email address
+ */
+export const getUserByEmail = async (email: string): Promise<UserProfile | null> => {
+  try {
+    const usersRef = collection(db, COLLECTIONS.USERS)
+    const q = query(usersRef, where('email', '==', email.toLowerCase().trim()), limit(1))
+    const querySnapshot = await getDocs(q)
+    
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0]
+      return { id: doc.id, ...doc.data() } as UserProfile
+    }
+    return null
+  } catch (error) {
+    console.error('Error fetching user by email:', error)
+    return null
+  }
+}
+
+/**
  * Update user profile in Firestore
  */
 export const updateUserProfile = async (
@@ -242,5 +262,96 @@ export const updateUsernameAcrossDatabase = async (
   } catch (error) {
     console.error('Error updating username across database:', error)
     throw new Error('Failed to update username in all related documents')
+  }
+}
+
+// Notification operations
+/**
+ * Create a notification for a user
+ */
+export const createUserNotification = async (
+  userId: string,
+  notification: {
+    type: 'group_invitation' | 'group_join_approved' | 'task_approved' | 'points_awarded' | 'general'
+    title: string
+    message: string
+    data?: any
+  }
+): Promise<string> => {
+  try {
+    const notificationsRef = collection(db, COLLECTIONS.NOTIFICATIONS)
+    const docRef = await addDoc(notificationsRef, {
+      userId,
+      ...notification,
+      read: false,
+      createdAt: serverTimestamp(),
+    })
+    return docRef.id
+  } catch (error) {
+    console.error('Error creating notification:', error)
+    throw new Error('Failed to create notification')
+  }
+}
+
+/**
+ * Get user notifications
+ */
+export const getUserNotifications = async (
+  userId: string,
+  limitCount = 20
+): Promise<any[]> => {
+  try {
+    const notificationsRef = collection(db, COLLECTIONS.NOTIFICATIONS)
+    const q = query(
+      notificationsRef,
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    )
+    
+    const querySnapshot = await getDocs(q)
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+  } catch (error) {
+    console.error('Error fetching user notifications:', error)
+    return []
+  }
+}
+
+/**
+ * Mark notification as read
+ */
+export const markNotificationAsRead = async (notificationId: string): Promise<void> => {
+  try {
+    const notificationRef = doc(db, COLLECTIONS.NOTIFICATIONS, notificationId)
+    await updateDoc(notificationRef, {
+      read: true,
+      readAt: serverTimestamp(),
+    })
+  } catch (error) {
+    console.error('Error marking notification as read:', error)
+    throw new Error('Failed to mark notification as read')
+  }
+}
+
+/**
+ * Get unread notifications count for a user
+ */
+export const getUnreadNotificationsCount = async (userId: string): Promise<number> => {
+  try {
+    const notificationsRef = collection(db, COLLECTIONS.NOTIFICATIONS)
+    const q = query(
+      notificationsRef,
+      where('userId', '==', userId),
+      where('read', '==', false)
+    )
+    
+    const querySnapshot = await getDocs(q)
+    return querySnapshot.size
+  } catch (error) {
+    console.error('Error fetching unread notifications count:', error)
+    return 0
   }
 }

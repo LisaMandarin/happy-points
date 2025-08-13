@@ -1,4 +1,6 @@
 import React from 'react'
+import { Tag } from 'antd'
+import type { TagProps } from 'antd'
 
 interface BadgeProps {
   children: React.ReactNode
@@ -13,28 +15,41 @@ const Badge: React.FC<BadgeProps> = ({
   size = 'md',
   className = ''
 }) => {
-  const baseClasses = 'inline-flex items-center font-medium rounded-full'
-  
-  const variantClasses = {
-    default: 'bg-gray-100 text-gray-800',
-    success: 'bg-green-100 text-green-800',
-    warning: 'bg-yellow-100 text-yellow-800',
-    error: 'bg-red-100 text-red-800',
-    info: 'bg-blue-100 text-blue-800',
+  const getColor = (): string => {
+    switch (variant) {
+      case 'success':
+        return 'green'
+      case 'warning':
+        return 'orange'
+      case 'error':
+        return 'red'
+      case 'info':
+        return 'blue'
+      case 'default':
+      default:
+        return 'default'
+    }
   }
-  
-  const sizeClasses = {
-    sm: 'px-2 py-0.5 text-xs',
-    md: 'px-2.5 py-0.5 text-sm',
-    lg: 'px-3 py-1 text-sm',
+
+  const getSizeClass = (): string => {
+    switch (size) {
+      case 'sm':
+        return 'text-xs px-2 py-0.5'
+      case 'lg':
+        return 'text-sm px-3 py-1'
+      case 'md':
+      default:
+        return 'text-sm px-2.5 py-0.5'
+    }
   }
-  
+
   return (
-    <span
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+    <Tag
+      color={getColor()}
+      className={`rounded-full font-medium ${getSizeClass()} ${className}`}
     >
       {children}
-    </span>
+    </Tag>
   )
 }
 

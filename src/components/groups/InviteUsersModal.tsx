@@ -5,6 +5,7 @@ import { Modal, Button, Input, Alert, Badge } from '@/components/ui'
 import { useForm } from '@/hooks/useForm'
 import { InviteUsersFormData, GroupInvitation } from '@/types'
 import { validateEmail, generateInvitationLink } from '@/lib/utils'
+import { getUserByEmail } from '@/lib/firestore'
 
 interface InviteUsersModalProps {
   isOpen: boolean
@@ -21,6 +22,7 @@ const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
 }) => {
   const [invitations, setInvitations] = useState<GroupInvitation[]>([])
   const [showInvitations, setShowInvitations] = useState(false)
+  const [emailAccountStatus, setEmailAccountStatus] = useState<Record<string, boolean>>({})
 
   const {
     values,
@@ -80,10 +82,28 @@ const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
     },
   })
 
+  const checkEmailAccounts = async (emails: string[]) => {
+    const status: Record<string, boolean> = {}
+    
+    for (const email of emails) {
+      const normalizedEmail = email.trim().toLowerCase()
+      try {
+        const user = await getUserByEmail(normalizedEmail)
+        status[normalizedEmail] = !!user
+      } catch (error) {
+        console.error(`Error checking account for ${normalizedEmail}:`, error)
+        status[normalizedEmail] = false
+      }
+    }
+    
+    setEmailAccountStatus(status)
+  }
+
   const handleClose = () => {
     resetForm()
     setInvitations([])
     setShowInvitations(false)
+    setEmailAccountStatus({})
     onClose()
   }
 
@@ -126,12 +146,28 @@ const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
               <div key={invitation.id} className="border rounded-lg p-3 bg-gray-50">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <p className="font-medium text-sm text-gray-900">
-                      {invitation.inviteeEmail}
-                    </p>
+                    <div className="flex items-center space-x-2 mb-1">
+                      <p className="font-medium text-sm text-gray-900">
+                        {invitation.inviteeEmail}
+                      </p>
+                      {(invitation as any).hasAccount ? (
+                        <Badge variant="success" size="sm">
+                          ✓ Has Account
+                        </Badge>
+                      ) : (
+                        <Badge variant="warning" size="sm">
+                          ⚠ No Account
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 mt-1 font-mono break-all">
                       {generateInvitationLink(invitation.invitationCode)}
                     </p>
+                    {(invitation as any).hasAccount && (
+                      <p className="text-xs text-green-600 mt-1">
+                        📧 User has been notified in-app
+                      </p>
+                    )}
                   </div>
                   <Button
                     size="sm"
@@ -194,7 +230,21 @@ const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
           </label>
           <textarea
             value={values.emails}
-            onChange={(e) => handleChange('emails')(e as any)}
+            onChange={(e) => {
+              handleChange('emails')(e as any)
+              // Check accounts when user pauses typing
+              const emails = e.target.value
+                .split(/[,\n]/)
+                .map(email => email.trim())
+                .filter(email => email.length > 0 && validateEmail(email))
+              
+              if (emails.length > 0) {
+                const timeoutId = setTimeout(() => {
+                  checkEmailAccounts(emails)
+                }, 500)
+                return () => clearTimeout(timeoutId)
+              }
+            }}
             className={`
               w-full px-3 py-2 border rounded-lg resize-none
               focus:outline-none focus:ring-2 focus:border-transparent
@@ -206,6 +256,26 @@ const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
           {errors.emails && (
             <p className="mt-1 text-sm text-red-600">{errors.emails}</p>
           )}
+          
+          {/* Email Status Preview */}
+          {values.emails && Object.keys(emailAccountStatus).length > 0 && (
+            <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+              <h4 className="text-xs font-medium text-gray-700 mb-2">Account Status Preview:</h4>
+              <div className="space-y-1">
+                {Object.entries(emailAccountStatus).map(([email, hasAccount]) => (
+                  <div key={email} className="flex items-center justify-between text-xs">
+                    <span className="text-gray-600">{email}</span>
+                    {hasAccount ? (
+                      <Badge variant="success" size="sm">✓ Has Account</Badge>
+                    ) : (
+                      <Badge variant="warning" size="sm">⚠ No Account</Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
           <p className="mt-1 text-sm text-gray-500">
             Enter up to 10 email addresses, separated by commas or new lines
           </p>

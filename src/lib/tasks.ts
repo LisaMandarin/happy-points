@@ -22,6 +22,7 @@ import {
   UpdateTaskData,
 } from '@/types'
 import { COLLECTIONS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '@/lib/constants'
+import { logActivity, Activities } from '@/lib/activities'
 
 /**
  * Create a new task for a group (admin only)
@@ -53,6 +54,25 @@ export const createGroupTask = async (
     }
 
     const docRef = await addDoc(tasksRef, task)
+    
+    // Log activity for task creation
+    try {
+      // We need to get the group name for better logging
+      const { getGroup } = await import('./groups')
+      const group = await getGroup(groupId)
+      if (group) {
+        await logActivity(Activities.taskCreated(
+          adminId,
+          groupId,
+          group.name,
+          docRef.id,
+          taskData.title
+        ))
+      }
+    } catch (error) {
+      console.error('Error logging task creation activity:', error)
+    }
+    
     return docRef.id
   } catch (error) {
     console.error('Error creating task:', error)
@@ -215,6 +235,24 @@ export const completeTask = async (
     }
 
     const docRef = await addDoc(completionsRef, completionData)
+    
+    // Log activity for task application submission
+    try {
+      const { getGroup } = await import('./groups')
+      const group = await getGroup(task.groupId)
+      if (group) {
+        await logActivity(Activities.taskApplicationSubmitted(
+          userId,
+          task.groupId,
+          group.name,
+          taskId,
+          task.title
+        ))
+      }
+    } catch (error) {
+      console.error('Error logging task application activity:', error)
+    }
+    
     return docRef.id
   } catch (error) {
     console.error('Error completing task:', error)
@@ -347,6 +385,34 @@ export const approveTaskCompletion = async (
       const newTransactionRef = doc(transactionsRef)
       transaction.set(newTransactionRef, transactionData)
     })
+    
+    // Log activities for task completion approval (after transaction succeeds)
+    try {
+      const { getGroup } = await import('./groups')
+      const group = await getGroup(completion.groupId)
+      if (group) {
+        // Log activity for the user whose task was approved
+        await logActivity(Activities.taskApplicationApproved(
+          completion.userId,
+          completion.groupId,
+          group.name,
+          completion.taskId,
+          taskTitle,
+          completion.pointsAwarded
+        ))
+        
+        // Also log the points earned activity
+        await logActivity(Activities.pointsEarned(
+          completion.userId,
+          completion.pointsAwarded,
+          `Task completed: ${taskTitle}`,
+          completion.taskId,
+          taskTitle
+        ))
+      }
+    } catch (error) {
+      console.error('Error logging task approval activities:', error)
+    }
   } catch (error) {
     console.error('Error approving task completion:', error)
     if (error instanceof Error) {

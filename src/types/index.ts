@@ -54,6 +54,7 @@ export interface CreateTransactionData {
 export interface LoginFormData {
   email: string
   password: string
+  general?: string
 }
 
 export interface RegisterFormData {
@@ -176,6 +177,7 @@ export interface JoinGroupFormData {
 
 export interface InviteUsersFormData {
   emails: string
+  general?: string
 }
 
 // Constants
@@ -242,6 +244,7 @@ export interface TaskFormData {
   title: string
   description: string
   points: string
+  general?: string
 }
 
 export const AUTH_ERRORS = {

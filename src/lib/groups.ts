@@ -34,6 +34,8 @@ import {
   ERROR_MESSAGES, 
   SUCCESS_MESSAGES 
 } from '@/lib/constants'
+import { getUserByEmail, createUserNotification } from '@/lib/firestore'
+import { logActivity, Activities } from '@/lib/activities'
 
 // Utility functions
 const generateGroupCode = (): string => {
@@ -89,6 +91,13 @@ export const createGroup = async (
     
     // Add admin as first member
     await addGroupMember(docRef.id, adminId, adminName, '', 'admin')
+    
+    // Log activity
+    try {
+      await logActivity(Activities.groupCreated(adminId, docRef.id, groupData.name))
+    } catch (error) {
+      console.error('Error logging group creation activity:', error)
+    }
     
     return docRef.id
   } catch (error) {
@@ -287,20 +296,68 @@ export const sendGroupInvitations = async (
     expiresAt.setDate(expiresAt.getDate() + DEFAULT_VALUES.GROUP.INVITATION_EXPIRY_DAYS)
 
     for (const email of inviteData.emails) {
+      const normalizedEmail = email.trim().toLowerCase()
+      
+      // Check if user exists and notify them if they do
+      const existingUser = await getUserByEmail(normalizedEmail)
+      
       const invitationCode = generateInvitationCode()
       const invitationData = {
         groupId: inviteData.groupId,
         groupName,
         adminId: inviteData.adminId,
         adminName,
-        inviteeEmail: email.trim().toLowerCase(),
+        inviteeEmail: normalizedEmail,
         status: 'pending' as InvitationStatus,
         invitationCode,
         expiresAt,
         createdAt: serverTimestamp(),
+        hasAccount: !!existingUser,
       }
       
       const docRef = await addDoc(invitationsRef, invitationData)
+      
+      // If user exists, create an in-app notification
+      if (existingUser) {
+        try {
+          await createUserNotification(existingUser.id, {
+            type: 'group_invitation',
+            title: `Group Invitation from ${adminName}`,
+            message: `You've been invited to join "${groupName}". Check your invitations to accept.`,
+            data: {
+              groupId: inviteData.groupId,
+              groupName,
+              adminName,
+              invitationId: docRef.id,
+              invitationCode,
+            }
+          })
+          
+          // Log activity for the user being invited
+          await logActivity(Activities.groupInvitationReceived(
+            existingUser.id, 
+            inviteData.groupId, 
+            groupName, 
+            adminName
+          ))
+        } catch (notificationError) {
+          console.error('Error creating notification for existing user:', notificationError)
+          // Don't fail the invitation if notification fails
+        }
+      }
+      
+      // Log activity for the admin sending the invitation
+      try {
+        await logActivity(Activities.groupInvitationSent(
+          inviteData.adminId,
+          inviteData.groupId,
+          groupName,
+          normalizedEmail
+        ))
+      } catch (error) {
+        console.error('Error logging invitation activity:', error)
+      }
+      
       invitations.push({
         id: docRef.id,
         ...invitationData,
@@ -682,6 +739,13 @@ export const submitJoinRequest = async (
     }
     
     await addDoc(joinRequestsRef, joinRequestData)
+    
+    // Log activity for the user submitting the join request
+    try {
+      await logActivity(Activities.joinRequestSubmitted(userId, group.id, group.name))
+    } catch (error) {
+      console.error('Error logging join request activity:', error)
+    }
   } catch (error) {
     console.error('Error submitting join request:', error)
     if (error instanceof Error) {
@@ -806,6 +870,33 @@ export const approveJoinRequest = async (
         processedByName: adminName,
       })
     })
+    
+    // Log activities for join request approval (after transaction succeeds)
+    try {
+      const requestRef = doc(db, COLLECTIONS.GROUP_JOIN_REQUESTS, requestId)
+      const requestSnap = await getDoc(requestRef)
+      
+      if (requestSnap.exists()) {
+        const joinRequest = requestSnap.data() as GroupJoinRequest
+        
+        // Log activity for the user who got approved
+        await logActivity(Activities.joinRequestApproved(
+          joinRequest.userId,
+          joinRequest.groupId,
+          joinRequest.groupName,
+          adminName
+        ))
+        
+        // Log activity for joining the group
+        await logActivity(Activities.groupJoined(
+          joinRequest.userId,
+          joinRequest.groupId,
+          joinRequest.groupName
+        ))
+      }
+    } catch (error) {
+      console.error('Error logging join approval activities:', error)
+    }
   } catch (error) {
     console.error('Error approving join request:', error)
     if (error instanceof Error) {

@@ -168,7 +168,7 @@ const ManageTasksModal: React.FC<ManageTasksModalProps> = ({
                   
                   <Button
                     size="sm"
-                    variant={task.isActive ? "outline" : "success"}
+                    variant={task.isActive ? "outline" : "primary"}
                     onClick={() => handleToggleActive(task)}
                     loading={actionLoading === task.id}
                     disabled={!!actionLoading}

@@ -1,9 +1,12 @@
 import React from 'react'
+import { Input as AntInput } from 'antd'
+import type { InputProps as AntInputProps } from 'antd'
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface InputProps extends Omit<AntInputProps, 'size'> {
   label?: string
   error?: string
   helperText?: string
+  size?: 'sm' | 'md' | 'lg'
 }
 
 const Input: React.FC<InputProps> = ({
@@ -11,34 +14,33 @@ const Input: React.FC<InputProps> = ({
   error,
   helperText,
   className = '',
-  id,
+  size = 'md',
   ...props
 }) => {
-  const inputId = id || `input-${Math.random().toString(36).substr(2, 9)}`
-  
+  const getAntSize = (): AntInputProps['size'] => {
+    switch (size) {
+      case 'sm':
+        return 'small'
+      case 'lg':
+        return 'large'
+      case 'md':
+      default:
+        return 'middle'
+    }
+  }
+
   return (
     <div className="w-full">
       {label && (
-        <label
-          htmlFor={inputId}
-          className="block text-sm font-medium text-gray-700 mb-2"
-        >
+        <label className="block text-sm font-medium text-gray-700 mb-2">
           {label}
         </label>
       )}
       
-      <input
-        id={inputId}
-        className={`
-          w-full px-3 py-2 border rounded-lg 
-          focus:outline-none focus:ring-2 focus:border-transparent
-          disabled:bg-gray-100 disabled:text-gray-500
-          ${error 
-            ? 'border-red-500 focus:ring-red-500' 
-            : 'border-gray-300 focus:ring-blue-500'
-          }
-          ${className}
-        `}
+      <AntInput
+        size={getAntSize()}
+        status={error ? 'error' : undefined}
+        className={className}
         {...props}
       />
       

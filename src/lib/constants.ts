@@ -8,6 +8,8 @@ export const COLLECTIONS = {
   GROUP_JOIN_REQUESTS: 'groupJoinRequests',
   GROUP_TASKS: 'groupTasks',
   TASK_COMPLETIONS: 'taskCompletions',
+  NOTIFICATIONS: 'notifications',
+  ACTIVITIES: 'activities',
   TEST: 'test',
 } as const
 

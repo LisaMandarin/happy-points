@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { getInvitationByCode, acceptInvitation } from '@/lib/groups'
 import { GroupInvitation } from '@/types'
 import { ROUTES, SUCCESS_MESSAGES } from '@/lib/constants'

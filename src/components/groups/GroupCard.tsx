@@ -19,11 +19,11 @@ const GroupCard: React.FC<GroupCardProps> = ({
   const memberPercentage = (group.memberCount / group.maxMembers) * 100
 
   return (
-    <Card
-      hover
+    <div
       className="cursor-pointer transition-all duration-200 hover:border-blue-300"
       onClick={onClick}
     >
+      <Card hover>
       <div className="flex justify-between items-start mb-3">
         <h3 className="text-lg font-semibold text-gray-900 truncate">
           {group.name}
@@ -66,7 +66,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
           <span>Created {formatDate(group.createdAt)}</span>
         </div>
       </div>
-    </Card>
+      </Card>
+    </div>
   )
 }
 

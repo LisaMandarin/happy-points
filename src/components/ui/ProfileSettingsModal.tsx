@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { Modal, Button, Input, Alert } from '@/components/ui'
 import { useForm } from '@/hooks/useForm'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { updateUserProfile, changeUserPassword } from '@/lib/auth'
 import { updateUsernameAcrossDatabase } from '@/lib/firestore'
 import { validatePassword } from '@/lib/utils'
@@ -15,12 +15,14 @@ interface ProfileSettingsModalProps {
 
 interface UpdateProfileFormData {
   displayName: string
+  general?: string
 }
 
 interface ChangePasswordFormData {
   currentPassword: string
   newPassword: string
   confirmPassword: string
+  general?: string
 }
 
 const ProfileSettingsModal: React.FC<ProfileSettingsModalProps> = ({
