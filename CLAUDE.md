@@ -15,6 +15,7 @@ Happy Points is a Next.js/React application for tracking and managing points wit
 ```
 src/
 ├── app/                    # Next.js App Router pages
+
 ├── components/             # React components
 │   ├── groups/            # Group-related components
 │   ├── tasks/             # Task management components

@@ -577,7 +577,7 @@ export default function Dashboard() {
                           <div key={group.id} className="relative border-l-4 border-blue-200 pl-3">
                             <GroupCard
                               group={group}
-                              isAdmin={true}
+                              currentUser={userProfile}
                             />
                             
                             {/* Admin Actions - Organized into logical groups */}
@@ -685,7 +685,7 @@ export default function Dashboard() {
                           <div key={group.id} className="relative">
                             <GroupCard
                               group={group}
-                              isAdmin={false}
+                              currentUser={userProfile}
                             />
                             <div className="absolute top-2 right-2">
                               <Button

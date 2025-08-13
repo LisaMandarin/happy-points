@@ -7,11 +7,12 @@ import { signOut } from '@/lib/auth'
 
 // React Query hooks
 import { useUserTransactions } from '@/hooks/queries/useTransactions'
-import { useUserGroups, useCreateGroup, useJoinGroup } from '@/hooks/queries/useGroups'
+import { useUserGroups, useCreateGroup, useJoinGroup, useInviteUsers } from '@/hooks/queries/useGroups'
 import { useUserNotifications } from '@/hooks/queries/useNotifications'
 
 import { Group, CreateGroupFormData } from '@/types'
 import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '@/lib/constants'
+import { formatDate } from '@/lib/utils'
 import CreateGroupModal from '@/components/groups/CreateGroupModal'
 import JoinGroupModal from '@/components/groups/JoinGroupModal'
 import GroupCard from '@/components/groups/GroupCard'
@@ -39,6 +40,7 @@ export default function Dashboard() {
   // Mutations
   const createGroupMutation = useCreateGroup()
   const joinGroupMutation = useJoinGroup()
+  const inviteUsersMutation = useInviteUsers()
 
   // UI state
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false)
@@ -75,10 +77,8 @@ export default function Dashboard() {
     try {
       await createGroupMutation.mutateAsync({ 
         userId: user.uid, 
-        groupData: {
-          ...groupData,
-          adminName: userProfile.name,
-        }
+        userProfile,
+        groupData: groupData
       })
       setSuccessMessage(SUCCESS_MESSAGES.GROUP.CREATED)
       setShowCreateGroupModal(false)
@@ -93,7 +93,7 @@ export default function Dashboard() {
     if (!user || !userProfile) return
 
     try {
-      await joinGroupMutation.mutateAsync({ userId: user.uid, groupCode })
+      await joinGroupMutation.mutateAsync({ userId: user.uid, userProfile, groupCode })
       setSuccessMessage('Join request submitted! The group admin will review your request.')
       setShowJoinGroupModal(false)
       clearMessages()
@@ -133,13 +133,78 @@ export default function Dashboard() {
       case 'task-applications':
         setShowTaskApplicationsModal(true)
         break
-      case 'award-points':
-        setShowAwardPointsModal(true)
-        break
       case 'review-requests':
         setShowReviewJoinRequestsModal(true)
         break
     }
+  }
+
+  const handleMemberClick = (member: any) => {
+    setSelectedMember(member)
+    setShowViewMembersModal(false)
+    setShowAwardPointsModal(true)
+  }
+
+  const handleRequestProcessed = () => {
+    // Refresh any data that needs to be updated when requests are processed
+    console.log('Join request processed')
+  }
+
+  const handleInviteUsers = async (emails: string[]) => {
+    if (!selectedGroup || !userProfile || !user) {
+      throw new Error('Group or user data not available')
+    }
+    
+    try {
+      const result = await inviteUsersMutation.mutateAsync({
+        groupId: selectedGroup.id,
+        emails,
+        adminId: user.uid,
+        adminName: userProfile.name,
+        groupName: selectedGroup.name
+      })
+      return result
+    } catch (error) {
+      console.error('Error inviting users:', error)
+      throw error
+    }
+  }
+
+  const handleCreateTask = async (taskData: { title: string; description: string; points: number }) => {
+    if (!selectedGroup || !userProfile) {
+      throw new Error('Group or user data not available')
+    }
+    
+    try {
+      // TODO: Implement actual create task API call
+      console.log('Creating task for group:', selectedGroup.id, taskData)
+      setSuccessMessage('Task created successfully!')
+      clearMessages()
+    } catch (error) {
+      console.error('Error creating task:', error)
+      setErrorMessage('Failed to create task. Please try again.')
+      clearMessages()
+      throw error
+    }
+  }
+
+  const handleEditTask = (task: any) => {
+    // TODO: Implement edit task functionality
+    console.log('Editing task:', task)
+    setSelectedTask(task)
+    // You could open an edit task modal here
+  }
+
+  const handleApplicationProcessed = () => {
+    // Refresh data when task applications are processed
+    console.log('Task application processed')
+  }
+
+  const handleApplicationSubmitted = () => {
+    // Handle when user submits a task application
+    console.log('Task application submitted')
+    setSuccessMessage('Task application submitted successfully!')
+    clearMessages()
   }
 
   const closeModals = () => {
@@ -311,7 +376,6 @@ export default function Dashboard() {
                         onCreateTask={() => openGroupModal(group, 'create-task')}
                         onManageTasks={() => openGroupModal(group, 'manage-tasks')}
                         onViewApplications={() => openGroupModal(group, 'task-applications')}
-                        onAwardPoints={() => openGroupModal(group, 'award-points')}
                         onReviewRequests={() => openGroupModal(group, 'review-requests')}
                       />
                     ))}
@@ -339,13 +403,13 @@ export default function Dashboard() {
                                 {transaction.description}
                               </p>
                               <p className="text-sm text-gray-500">
-                                {new Date(transaction.createdAt).toLocaleDateString()}
+                                {formatDate(transaction.createdAt)}
                               </p>
                             </div>
                             <div className={`text-sm font-medium ${
-                              transaction.points > 0 ? 'text-green-600' : 'text-red-600'
+                              transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
                             }`}>
-                              {transaction.points > 0 ? '+' : ''}{transaction.points} points
+                              {transaction.amount > 0 ? '+' : ''}{transaction.amount} points
                             </div>
                           </div>
                         </li>
@@ -374,7 +438,7 @@ export default function Dashboard() {
                               {notification.message}
                             </p>
                             <p className="text-sm text-gray-500">
-                              {new Date(notification.createdAt).toLocaleDateString()}
+                              {formatDate(notification.createdAt)}
                             </p>
                           </div>
                         </li>
@@ -392,13 +456,13 @@ export default function Dashboard() {
       <CreateGroupModal
         isOpen={showCreateGroupModal}
         onClose={() => setShowCreateGroupModal(false)}
-        onSubmit={handleCreateGroup}
+        onCreateGroup={handleCreateGroup}
       />
 
       <JoinGroupModal
         isOpen={showJoinGroupModal}
         onClose={() => setShowJoinGroupModal(false)}
-        onSubmit={handleJoinGroup}
+        onJoinGroup={handleJoinGroup}
       />
 
       {selectedGroup && (
@@ -406,64 +470,83 @@ export default function Dashboard() {
           <InviteUsersModal
             isOpen={showInviteModal}
             onClose={closeModals}
-            group={selectedGroup}
+            onInviteUsers={handleInviteUsers}
+            groupName={selectedGroup?.name || ''}
           />
           
           <ManageInvitationsModal
             isOpen={showManageInvitationsModal}
             onClose={closeModals}
             group={selectedGroup}
+            adminName={userProfile?.name || ''}
           />
           
           <ViewMembersModal
             isOpen={showViewMembersModal}
             onClose={closeModals}
             group={selectedGroup}
+            currentUserId={user?.uid}
+            isAdmin={selectedGroup?.adminId === userProfile?.id}
+            onMemberClick={handleMemberClick}
           />
           
           <CreateTaskModal
             isOpen={showCreateTaskModal}
             onClose={closeModals}
-            group={selectedGroup}
+            onCreateTask={handleCreateTask}
           />
           
           <ManageTasksModal
             isOpen={showManageTasksModal}
             onClose={closeModals}
             group={selectedGroup}
+            currentUserId={userProfile?.id || ''}
+            onEditTask={handleEditTask}
           />
           
           <TaskApplicationsModal
             isOpen={showTaskApplicationsModal}
             onClose={closeModals}
             group={selectedGroup}
+            adminId={userProfile?.id || ''}
+            adminName={userProfile?.name || ''}
+            onApplicationProcessed={handleApplicationProcessed}
           />
           
           <AwardPointsModal
             isOpen={showAwardPointsModal}
             onClose={closeModals}
-            group={selectedGroup}
+            groupId={selectedGroup?.id}
             member={selectedMember}
+            onAwardPoints={async (memberId: string, taskId: string, points: number) => {
+              // TODO: Implement award points logic
+              console.log('Award points:', { memberId, taskId, points })
+            }}
           />
           
-          <ReviewJoinRequestsModal
-            isOpen={showReviewJoinRequestsModal}
-            onClose={closeModals}
-            group={selectedGroup}
-          />
+          {userProfile?.id && (
+            <ReviewJoinRequestsModal
+              isOpen={showReviewJoinRequestsModal}
+              onClose={closeModals}
+              adminId={userProfile.id}
+              adminName={userProfile.name}
+              onRequestProcessed={handleRequestProcessed}
+            />
+          )}
         </>
       )}
 
       <TaskApplicationModal
         isOpen={showTaskApplicationModal}
         onClose={() => setShowTaskApplicationModal(false)}
-        currentUser={userProfile}
+        userId={userProfile?.id || ''}
+        userName={userProfile?.name || ''}
+        onApplicationSubmitted={handleApplicationSubmitted}
       />
 
       <ProfileSettingsModal
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
-        onProfileUpdate={refreshProfile}
       />
     </div>
   )

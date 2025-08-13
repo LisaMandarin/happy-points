@@ -8,8 +8,8 @@ import { getActiveGroupTasks } from '@/lib/tasks'
 interface AwardPointsModalProps {
   isOpen: boolean
   onClose: () => void
-  member: GroupMember
-  groupId: string
+  member: GroupMember | null
+  groupId: string | undefined
   onAwardPoints: (memberId: string, taskId: string, points: number) => Promise<void>
 }
 
@@ -29,13 +29,15 @@ const AwardPointsModal: React.FC<AwardPointsModalProps> = ({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && groupId) {
       loadTasks()
       resetForm()
     }
   }, [isOpen, groupId])
 
   const loadTasks = async () => {
+    if (!groupId) return
+    
     try {
       setLoading(true)
       setError(null)
@@ -90,6 +92,11 @@ const AwardPointsModal: React.FC<AwardPointsModalProps> = ({
       }
     }
 
+    if (!member) {
+      setError('Member data not available')
+      return
+    }
+
     try {
       setSubmitting(true)
       setError(null)
@@ -101,6 +108,11 @@ const AwardPointsModal: React.FC<AwardPointsModalProps> = ({
     } finally {
       setSubmitting(false)
     }
+  }
+
+  // Don't render if essential data is missing
+  if (!member || !groupId) {
+    return null
   }
 
   return (

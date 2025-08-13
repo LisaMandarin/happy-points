@@ -507,6 +507,26 @@ export const getGroupInvitations = async (groupId: string): Promise<GroupInvitat
 }
 
 /**
+ * Get count of pending group invitations (for admin)
+ */
+export const getGroupInvitationCount = async (groupId: string): Promise<number> => {
+  try {
+    const invitationsRef = collection(db, COLLECTIONS.GROUP_INVITATIONS)
+    const q = query(
+      invitationsRef,
+      where('groupId', '==', groupId),
+      where('status', '==', 'pending')
+    )
+    const querySnapshot = await getDocs(q)
+    
+    return querySnapshot.size
+  } catch (error) {
+    console.error('Error fetching group invitation count:', error)
+    return 0
+  }
+}
+
+/**
  * Cancel/Delete invitation
  */
 export const cancelInvitation = async (invitationId: string): Promise<void> => {

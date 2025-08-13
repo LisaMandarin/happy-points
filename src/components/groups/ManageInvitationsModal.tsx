@@ -4,14 +4,13 @@ import React, { useState } from 'react'
 import { Modal, Button, Alert, LoadingSpinner } from '@/components/ui'
 import { GroupInvitation, Group } from '@/types'
 import { 
-  getGroupInvitations, 
   cancelInvitation, 
   resendInvitation,
   generateInvitationLink 
 } from '@/lib/groups'
 import { formatDate, getTimeAgo } from '@/lib/utils'
 import { getInvitationStatusBadge } from '@/lib/utils/statusBadges'
-import { useModalData } from '@/hooks/useModalData'
+import { useGroupInvitations, useCancelInvitation, useResendInvitation } from '@/hooks/queries/useGroups'
 
 interface ManageInvitationsModalProps {
   isOpen: boolean
@@ -26,12 +25,11 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
   group,
   adminName
 }) => {
-  const { data: invitations, loading, error: dataError, reload } = useModalData<GroupInvitation[]>({
-    loadDataFn: () => getGroupInvitations(group.id),
-    dependencies: [isOpen, group.id],
-    errorMessage: 'Failed to load invitations'
-  })
+  const { data: invitations = [], isLoading: loading, error: dataError, refetch: reload } = useGroupInvitations(isOpen ? group.id : undefined)
 
+  const cancelInvitationMutation = useCancelInvitation()
+  const resendInvitationMutation = useResendInvitation()
+  
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -40,9 +38,8 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
     try {
       setActionLoading(invitation.id)
       setError(null)
-      await cancelInvitation(invitation.id)
+      await cancelInvitationMutation.mutateAsync(invitation.id)
       setSuccess('Invitation cancelled successfully')
-      await reload()
       clearMessages()
     } catch (error) {
       setError('Failed to cancel invitation')
@@ -56,16 +53,15 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
     try {
       setActionLoading(invitation.id)
       setError(null)
-      await resendInvitation(
-        invitation.id,
-        group.id,
-        group.name,
-        group.adminId,
+      await resendInvitationMutation.mutateAsync({
+        invitationId: invitation.id,
+        groupId: group.id,
+        groupName: group.name,
+        adminId: group.adminId,
         adminName,
-        invitation.inviteeEmail
-      )
+        inviteeEmail: invitation.inviteeEmail
+      })
       setSuccess('Invitation resent successfully')
-      await reload()
       clearMessages()
     } catch (error) {
       setError('Failed to resend invitation')
@@ -119,7 +115,7 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
       size="lg"
       footer={
         <div className="flex justify-between">
-          <Button variant="outline" onClick={reload} disabled={loading}>
+          <Button variant="outline" onClick={() => reload()} disabled={loading}>
             {loading ? 'Refreshing...' : 'Refresh'}
           </Button>
           <Button onClick={onClose}>
@@ -132,7 +128,7 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
         {(success || error || dataError) && (
           <div>
             {success && <Alert variant="success">{success}</Alert>}
-            {(error || dataError) && <Alert variant="error">{error || dataError}</Alert>}
+            {(error || dataError) && <Alert variant="error">{error || dataError?.message || 'An error occurred'}</Alert>}
           </div>
         )}
 

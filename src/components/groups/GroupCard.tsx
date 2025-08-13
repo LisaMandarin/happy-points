@@ -1,28 +1,42 @@
 'use client'
 
 import React from 'react'
-import { Card, Badge } from '@/components/ui'
-import { Group } from '@/types'
+import { Card, Badge, Button } from '@/components/ui'
+import { Group, UserProfile } from '@/types'
 import { formatDate } from '@/lib/utils'
+import { useGroupInvitationCount } from '@/hooks/queries/useGroups'
 
 interface GroupCardProps {
   group: Group
-  isAdmin: boolean
-  onClick?: () => void
+  currentUser: UserProfile | null
+  onInviteUsers?: () => void
+  onManageInvitations?: () => void
+  onViewMembers?: () => void
+  onCreateTask?: () => void
+  onManageTasks?: () => void
+  onViewApplications?: () => void
+  onReviewRequests?: () => void
 }
 
 const GroupCard: React.FC<GroupCardProps> = ({
   group,
-  isAdmin,
-  onClick
+  currentUser,
+  onInviteUsers,
+  onManageInvitations,
+  onViewMembers,
+  onCreateTask,
+  onManageTasks,
+  onViewApplications,
+  onReviewRequests
 }) => {
   const memberPercentage = (group.memberCount / group.maxMembers) * 100
+  const isAdmin = currentUser?.id === group.adminId
+  
+  // Only fetch invitation count if user is admin
+  const { data: invitationCount = 0 } = useGroupInvitationCount(isAdmin ? group.id : undefined)
 
   return (
-    <div
-      className="cursor-pointer transition-all duration-200 hover:border-blue-300"
-      onClick={onClick}
-    >
+    <div className="transition-all duration-200">
       <Card hover>
       <div className="flex justify-between items-start mb-3">
         <h3 className="text-lg font-semibold text-gray-900 truncate">
@@ -62,9 +76,94 @@ const GroupCard: React.FC<GroupCardProps> = ({
         </div>
 
         <div className="flex justify-between items-center text-xs text-gray-400">
-          <span>Code: {group.code}</span>
+          {!group.isPrivate ? (
+            <span>Code: {group.code}</span>
+          ) : (
+            <span>Private Group</span>
+          )}
           <span>Created {formatDate(group.createdAt)}</span>
         </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="mt-4 pt-3 border-t border-gray-200">
+        {isAdmin ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={onViewMembers}
+                className="text-xs"
+              >
+                👥 Members
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={onInviteUsers}
+                className="text-xs"
+              >
+                📧 Invite
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={onManageInvitations}
+                className="text-xs"
+              >
+                📋 Invites{invitationCount > 0 && ` (${invitationCount})`}
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={onCreateTask}
+                className="text-xs"
+              >
+                ➕ Task
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={onManageTasks}
+                className="text-xs"
+              >
+                📝 Manage
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={onViewApplications}
+                className="text-xs"
+              >
+                📋 Review
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={onReviewRequests}
+                className="text-xs"
+              >
+                ✅ Requests
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={onViewMembers}
+              className="text-xs"
+            >
+              👥 View Members
+            </Button>
+          </div>
+        )}
       </div>
       </Card>
     </div>

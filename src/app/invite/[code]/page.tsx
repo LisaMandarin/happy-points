@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { getInvitationByCode, acceptInvitation } from '@/lib/groups'
@@ -21,18 +21,7 @@ export default function AcceptInvitationPage() {
 
   const invitationCode = params.code as string
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      router.push(`${ROUTES.LOGIN}?redirect=/invite/${invitationCode}`)
-      return
-    }
-
-    if (!authLoading && user && invitationCode) {
-      loadInvitation()
-    }
-  }, [authLoading, user, invitationCode, router])
-
-  const loadInvitation = async () => {
+  const loadInvitation = useCallback(async () => {
     try {
       setLoading(true)
       const invitationData = await getInvitationByCode(invitationCode)
@@ -42,6 +31,8 @@ export default function AcceptInvitationPage() {
         setError('Invalid or expired invitation link')
       } else if (invitationData.status !== 'pending') {
         setError('This invitation has already been used')
+      } else if (userProfile && invitationData.inviteeEmail.toLowerCase() !== userProfile.email.toLowerCase()) {
+        setError('This invitation was sent to a different email address. Please log in with the correct account or contact the person who sent the invitation.')
       } else {
         const now = new Date()
         const expiresAt = invitationData.expiresAt instanceof Date 
@@ -50,6 +41,12 @@ export default function AcceptInvitationPage() {
           
         if (now > expiresAt) {
           setError('This invitation has expired')
+        } else {
+          // If userProfile is not yet available, clear any existing error
+          // The email validation will happen when userProfile loads and loadInvitation runs again
+          if (!userProfile) {
+            setError(null)
+          }
         }
       }
     } catch (error) {
@@ -58,7 +55,18 @@ export default function AcceptInvitationPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [invitationCode, userProfile])
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push(`${ROUTES.LOGIN}?redirect=/invite/${invitationCode}`)
+      return
+    }
+
+    if (!authLoading && user && invitationCode) {
+      loadInvitation()
+    }
+  }, [authLoading, user, invitationCode, router, loadInvitation])
 
   const handleAcceptInvitation = async () => {
     if (!invitation || !user || !userProfile) return
@@ -127,12 +135,30 @@ export default function AcceptInvitationPage() {
               <Alert variant="error" className="mb-4">
                 {error}
               </Alert>
-              <Button
-                variant="outline"
-                onClick={() => router.push(ROUTES.DASHBOARD)}
-              >
-                Go to Dashboard
-              </Button>
+              {invitation && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg text-sm text-gray-600">
+                  <p><strong>Expected invitee:</strong> {invitation.inviteeEmail}</p>
+                  {userProfile && (
+                    <p><strong>Currently logged in as:</strong> {userProfile.email}</p>
+                  )}
+                </div>
+              )}
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  onClick={() => router.push(ROUTES.DASHBOARD)}
+                >
+                  Go to Dashboard
+                </Button>
+                <p className="text-sm text-gray-500">
+                  or <button 
+                    onClick={() => router.push(ROUTES.LOGIN)} 
+                    className="text-blue-600 hover:text-blue-800 underline"
+                  >
+                    log in with the correct account
+                  </button>
+                </p>
+              </div>
             </div>
           ) : invitation ? (
             <div>
@@ -166,10 +192,18 @@ export default function AcceptInvitationPage() {
                   </div>
                 </div>
 
-                <p className="text-sm text-gray-600 text-center">
-                  By accepting this invitation, you'll become a member of this group 
-                  and can participate in group activities.
-                </p>
+                {!userProfile ? (
+                  <div className="bg-blue-50 p-3 rounded-lg text-center">
+                    <p className="text-sm text-blue-600">
+                      Verifying your account details...
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-600 text-center">
+                    By accepting this invitation, you'll become a member of this group 
+                    and can participate in group activities.
+                  </p>
+                )}
               </div>
 
               <div className="flex space-x-3">
@@ -184,8 +218,9 @@ export default function AcceptInvitationPage() {
                   className="flex-1"
                   onClick={handleAcceptInvitation}
                   loading={accepting}
+                  disabled={!userProfile}
                 >
-                  Accept Invitation
+                  {!userProfile ? 'Loading...' : 'Accept Invitation'}
                 </Button>
               </div>
             </div>
