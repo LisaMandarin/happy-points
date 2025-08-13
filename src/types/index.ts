@@ -127,6 +127,23 @@ export interface GroupInvitation {
   acceptedAt?: Date | Timestamp
 }
 
+export type JoinRequestStatus = 'pending' | 'approved' | 'rejected'
+
+export interface GroupJoinRequest {
+  id: string
+  groupId: string
+  groupName: string
+  userId: string
+  userName: string
+  userEmail: string
+  status: JoinRequestStatus
+  requestedAt: Date | Timestamp
+  processedAt?: Date | Timestamp
+  processedBy?: string
+  processedByName?: string
+  rejectionReason?: string
+}
+
 export interface CreateGroupData {
   name: string
   description: string

@@ -1,10 +1,13 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { Modal, Button, Alert, LoadingSpinner, Badge } from '@/components/ui'
-import { Group, TaskCompletion, GroupTask } from '@/types'
+import React, { useState } from 'react'
+import { Modal, Button, Alert, LoadingSpinner } from '@/components/ui'
+import { Group, TaskCompletion } from '@/types'
 import { getGroupTaskCompletions, approveTaskCompletion, rejectTaskCompletion, getTask } from '@/lib/tasks'
 import { formatDate } from '@/lib/utils'
+import { getApplicationStatusBadge } from '@/lib/utils/statusBadges'
+import { useModalData } from '@/hooks/useModalData'
+import { useApproveReject } from '@/hooks/useApproveReject'
 
 interface TaskApplicationsModalProps {
   isOpen: boolean
@@ -28,109 +31,60 @@ const TaskApplicationsModal: React.FC<TaskApplicationsModalProps> = ({
   adminName,
   onApplicationProcessed
 }) => {
-  const [applications, setApplications] = useState<TaskCompletionWithTask[]>([])
-  const [loading, setLoading] = useState(false)
-  const [processing, setProcessing] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (isOpen) {
-      loadApplications()
-    }
-  }, [isOpen, group.id])
-
-  const loadApplications = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const completions = await getGroupTaskCompletions(group.id)
-      
-      // Get task details for each completion
-      const completionsWithTasks = await Promise.all(
-        completions.map(async (completion) => {
-          try {
-            const task = await getTask(completion.taskId)
-            return {
-              ...completion,
-              taskTitle: task?.title || 'Unknown Task',
-              taskDescription: task?.description || '',
-            }
-          } catch (error) {
-            console.error(`Error fetching task ${completion.taskId}:`, error)
-            return {
-              ...completion,
-              taskTitle: 'Unknown Task',
-              taskDescription: '',
-            }
+  const loadApplications = async (): Promise<TaskCompletionWithTask[]> => {
+    const completions = await getGroupTaskCompletions(group.id)
+    
+    // Get task details for each completion
+    const completionsWithTasks = await Promise.all(
+      completions.map(async (completion) => {
+        try {
+          const task = await getTask(completion.taskId)
+          return {
+            ...completion,
+            taskTitle: task?.title || 'Unknown Task',
+            taskDescription: task?.description || '',
           }
-        })
-      )
-      
-      setApplications(completionsWithTasks)
-    } catch (error) {
-      console.error('Error loading applications:', error)
-      setError('Failed to load task applications')
-    } finally {
-      setLoading(false)
-    }
+        } catch (error) {
+          console.error(`Error fetching task ${completion.taskId}:`, error)
+          return {
+            ...completion,
+            taskTitle: 'Unknown Task',
+            taskDescription: '',
+          }
+        }
+      })
+    )
+    
+    return completionsWithTasks
   }
 
-  const handleApprove = async (completionId: string) => {
-    try {
-      setProcessing(completionId)
-      setError(null)
-      setSuccessMessage(null)
-      
-      await approveTaskCompletion(completionId, adminId, adminName)
-      
-      setSuccessMessage('Task application approved successfully!')
-      onApplicationProcessed()
-      await loadApplications() // Refresh the list
-      
-      setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to approve application')
-    } finally {
-      setProcessing(null)
-    }
-  }
+  const { data: applications, loading, error: dataError, reload } = useModalData<TaskCompletionWithTask[]>({
+    loadDataFn: loadApplications,
+    dependencies: [isOpen, group.id],
+    errorMessage: 'Failed to load task applications'
+  })
 
-  const handleReject = async (completionId: string, reason?: string) => {
-    try {
-      setProcessing(completionId)
-      setError(null)
-      setSuccessMessage(null)
-      
-      await rejectTaskCompletion(completionId, adminId, adminName, reason)
-      
-      setSuccessMessage('Task application rejected.')
-      onApplicationProcessed()
-      await loadApplications() // Refresh the list
-      
-      setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Failed to reject application')
-    } finally {
-      setProcessing(null)
-    }
-  }
+  const {
+    handleApprove,
+    handleReject,
+    processing,
+    error: processError,
+    successMessage
+  } = useApproveReject({
+    approveAction: approveTaskCompletion,
+    rejectAction: rejectTaskCompletion,
+    onProcessed: onApplicationProcessed,
+    refreshData: reload,
+    approveSuccessMessage: 'Task application approved successfully!',
+    rejectSuccessMessage: 'Task application rejected.',
+    approveErrorMessage: 'Failed to approve application',
+    rejectErrorMessage: 'Failed to reject application'
+  })
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge variant="warning" size="sm">Pending</Badge>
-      case 'approved':
-        return <Badge variant="success" size="sm">Approved</Badge>
-      case 'rejected':
-        return <Badge variant="error" size="sm">Rejected</Badge>
-      default:
-        return <Badge variant="default" size="sm">{status}</Badge>
-    }
-  }
+  const error = dataError || processError
 
-  const pendingApplications = applications.filter(app => app.status === 'pending')
-  const processedApplications = applications.filter(app => app.status !== 'pending')
+  const pendingApplications = applications?.filter(app => app.status === 'pending') || []
+  const processedApplications = applications?.filter(app => app.status !== 'pending') || []
 
   return (
     <Modal
@@ -167,7 +121,7 @@ const TaskApplicationsModal: React.FC<TaskApplicationsModalProps> = ({
             <LoadingSpinner size="lg" />
             <span className="ml-2 text-gray-600">Loading applications...</span>
           </div>
-        ) : applications.length === 0 ? (
+        ) : !applications || applications.length === 0 ? (
           <div className="text-center py-8">
             <div className="text-gray-400 mb-4">
               <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,7 +147,7 @@ const TaskApplicationsModal: React.FC<TaskApplicationsModalProps> = ({
                             <h5 className="font-medium text-gray-900">
                               {application.taskTitle}
                             </h5>
-                            {getStatusBadge(application.status)}
+                            {getApplicationStatusBadge(application.status)}
                           </div>
                           <p className="text-sm text-gray-600 mb-2">
                             {application.taskDescription}
@@ -209,7 +163,7 @@ const TaskApplicationsModal: React.FC<TaskApplicationsModalProps> = ({
                       <div className="flex space-x-2">
                         <Button
                           size="sm"
-                          onClick={() => handleApprove(application.id)}
+                          onClick={() => handleApprove(application.id, adminId, adminName)}
                           disabled={processing === application.id}
                           className="bg-green-600 hover:bg-green-700"
                         >
@@ -222,7 +176,7 @@ const TaskApplicationsModal: React.FC<TaskApplicationsModalProps> = ({
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleReject(application.id, 'Declined by admin')}
+                          onClick={() => handleReject(application.id, adminId, adminName, 'Declined by admin')}
                           disabled={processing === application.id}
                           className="border-red-300 text-red-700 hover:bg-red-50"
                         >
@@ -256,7 +210,7 @@ const TaskApplicationsModal: React.FC<TaskApplicationsModalProps> = ({
                             <h5 className="font-medium text-gray-900">
                               {application.taskTitle}
                             </h5>
-                            {getStatusBadge(application.status)}
+                            {getApplicationStatusBadge(application.status)}
                           </div>
                           <div className="text-sm text-gray-500 space-y-1">
                             <p><span className="font-medium">Applicant:</span> {application.userName}</p>

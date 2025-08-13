@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { Modal, Button, Alert, Badge, LoadingSpinner } from '@/components/ui'
+import React, { useState } from 'react'
+import { Modal, Button, Alert, LoadingSpinner } from '@/components/ui'
 import { GroupInvitation, Group } from '@/types'
 import { 
   getGroupInvitations, 
@@ -10,6 +10,8 @@ import {
   generateInvitationLink 
 } from '@/lib/groups'
 import { formatDate, getTimeAgo } from '@/lib/utils'
+import { getInvitationStatusBadge } from '@/lib/utils/statusBadges'
+import { useModalData } from '@/hooks/useModalData'
 
 interface ManageInvitationsModalProps {
   isOpen: boolean
@@ -24,31 +26,15 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
   group,
   adminName
 }) => {
-  const [invitations, setInvitations] = useState<GroupInvitation[]>([])
-  const [loading, setLoading] = useState(false)
+  const { data: invitations, loading, error: dataError, reload } = useModalData<GroupInvitation[]>({
+    loadDataFn: () => getGroupInvitations(group.id),
+    dependencies: [isOpen, group.id],
+    errorMessage: 'Failed to load invitations'
+  })
+
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (isOpen) {
-      loadInvitations()
-    }
-  }, [isOpen, group.id])
-
-  const loadInvitations = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const groupInvitations = await getGroupInvitations(group.id)
-      setInvitations(groupInvitations)
-    } catch (error) {
-      console.error('Error loading invitations:', error)
-      setError('Failed to load invitations')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleCancelInvitation = async (invitation: GroupInvitation) => {
     try {
@@ -56,7 +42,7 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
       setError(null)
       await cancelInvitation(invitation.id)
       setSuccess('Invitation cancelled successfully')
-      await loadInvitations()
+      await reload()
       clearMessages()
     } catch (error) {
       setError('Failed to cancel invitation')
@@ -79,7 +65,7 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
         invitation.inviteeEmail
       )
       setSuccess('Invitation resent successfully')
-      await loadInvitations()
+      await reload()
       clearMessages()
     } catch (error) {
       setError('Failed to resend invitation')
@@ -108,22 +94,6 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
     }, 3000)
   }
 
-  const getStatusBadge = (invitation: GroupInvitation) => {
-    const now = new Date()
-    const expiresAt = invitation.expiresAt instanceof Date 
-      ? invitation.expiresAt 
-      : invitation.expiresAt.toDate()
-
-    if (invitation.status === 'accepted') {
-      return <Badge variant="success" size="sm">Accepted</Badge>
-    } else if (invitation.status === 'declined') {
-      return <Badge variant="error" size="sm">Declined</Badge>
-    } else if (invitation.status === 'expired' || now > expiresAt) {
-      return <Badge variant="error" size="sm">Expired</Badge>
-    } else {
-      return <Badge variant="info" size="sm">Pending</Badge>
-    }
-  }
 
   const isActionable = (invitation: GroupInvitation) => {
     const now = new Date()
@@ -134,7 +104,7 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
     return invitation.status === 'pending' && now <= expiresAt
   }
 
-  const filteredInvitations = invitations.filter(inv => 
+  const filteredInvitations = (invitations || []).filter(inv => 
     inv.status !== 'expired' || 
     (inv.status === 'expired' && 
      new Date().getTime() - (inv.createdAt instanceof Date ? inv.createdAt.getTime() : inv.createdAt.toDate().getTime()) < 24 * 60 * 60 * 1000
@@ -149,7 +119,7 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
       size="lg"
       footer={
         <div className="flex justify-between">
-          <Button variant="outline" onClick={loadInvitations} disabled={loading}>
+          <Button variant="outline" onClick={reload} disabled={loading}>
             {loading ? 'Refreshing...' : 'Refresh'}
           </Button>
           <Button onClick={onClose}>
@@ -159,10 +129,10 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
       }
     >
       <div className="space-y-4">
-        {(success || error) && (
+        {(success || error || dataError) && (
           <div>
             {success && <Alert variant="success">{success}</Alert>}
-            {error && <Alert variant="error">{error}</Alert>}
+            {(error || dataError) && <Alert variant="error">{error || dataError}</Alert>}
           </div>
         )}
 
@@ -183,7 +153,7 @@ const ManageInvitationsModal: React.FC<ManageInvitationsModalProps> = ({
                       <h4 className="font-medium text-gray-900">
                         {invitation.inviteeEmail}
                       </h4>
-                      {getStatusBadge(invitation)}
+                      {getInvitationStatusBadge(invitation)}
                     </div>
                     <div className="text-sm text-gray-500 mt-1">
                       <p>Invited {getTimeAgo(invitation.createdAt)}</p>

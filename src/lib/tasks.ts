@@ -196,10 +196,10 @@ export const completeTask = async (
       throw new Error(ERROR_MESSAGES.TASK.NOT_ACTIVE)
     }
 
-    // Check if user already completed this task
+    // Check if user has a pending application for this task
     const existingCompletion = await getTaskCompletion(taskId, userId)
-    if (existingCompletion) {
-      throw new Error(ERROR_MESSAGES.TASK.ALREADY_COMPLETED)
+    if (existingCompletion && existingCompletion.status === 'pending') {
+      throw new Error('You already have a pending application for this task. Please wait for admin approval.')
     }
 
     // Create task completion record
@@ -465,5 +465,105 @@ export const awardPointsToMember = async (
       throw error
     }
     throw new Error('Failed to award points to member')
+  }
+}
+
+/**
+ * Get pending task applications for admin's groups
+ */
+export const getPendingTaskApplications = async (adminId: string): Promise<TaskCompletion[]> => {
+  try {
+    // First, get all groups where user is admin
+    const groupsRef = collection(db, COLLECTIONS.GROUPS)
+    const adminGroupsQuery = query(groupsRef, where('adminId', '==', adminId))
+    const adminGroupsSnapshot = await getDocs(adminGroupsQuery)
+    
+    if (adminGroupsSnapshot.empty) {
+      return []
+    }
+    
+    const adminGroupIds = adminGroupsSnapshot.docs.map(doc => doc.id)
+    
+    // Get pending task completions for these groups
+    const completionsRef = collection(db, COLLECTIONS.TASK_COMPLETIONS)
+    const pendingQuery = query(
+      completionsRef,
+      where('groupId', 'in', adminGroupIds),
+      where('status', '==', 'pending'),
+      orderBy('completedAt', 'desc')
+    )
+    
+    const snapshot = await getDocs(pendingQuery)
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as TaskCompletion[]
+  } catch (error) {
+    console.error('Error fetching pending task applications:', error)
+    return []
+  }
+}
+
+/**
+ * Get task statistics for admin's groups
+ */
+export const getAdminTaskStats = async (adminId: string) => {
+  try {
+    // Get all groups where user is admin
+    const groupsRef = collection(db, COLLECTIONS.GROUPS)
+    const adminGroupsQuery = query(groupsRef, where('adminId', '==', adminId))
+    const adminGroupsSnapshot = await getDocs(adminGroupsQuery)
+    
+    if (adminGroupsSnapshot.empty) {
+      return {
+        totalActiveTasks: 0,
+        pendingApplications: 0,
+        completedTasks: 0,
+        totalGroups: 0
+      }
+    }
+    
+    const adminGroupIds = adminGroupsSnapshot.docs.map(doc => doc.id)
+    
+    // Get active tasks count
+    const tasksRef = collection(db, COLLECTIONS.GROUP_TASKS)
+    const activeTasksQuery = query(
+      tasksRef,
+      where('groupId', 'in', adminGroupIds),
+      where('isActive', '==', true)
+    )
+    const activeTasksSnapshot = await getDocs(activeTasksQuery)
+    
+    // Get pending applications count
+    const completionsRef = collection(db, COLLECTIONS.TASK_COMPLETIONS)
+    const pendingQuery = query(
+      completionsRef,
+      where('groupId', 'in', adminGroupIds),
+      where('status', '==', 'pending')
+    )
+    const pendingSnapshot = await getDocs(pendingQuery)
+    
+    // Get completed tasks count
+    const completedQuery = query(
+      completionsRef,
+      where('groupId', 'in', adminGroupIds),
+      where('status', '==', 'approved')
+    )
+    const completedSnapshot = await getDocs(completedQuery)
+    
+    return {
+      totalActiveTasks: activeTasksSnapshot.size,
+      pendingApplications: pendingSnapshot.size,
+      completedTasks: completedSnapshot.size,
+      totalGroups: adminGroupsSnapshot.size
+    }
+  } catch (error) {
+    console.error('Error fetching admin task stats:', error)
+    return {
+      totalActiveTasks: 0,
+      pendingApplications: 0,
+      completedTasks: 0,
+      totalGroups: 0
+    }
   }
 }

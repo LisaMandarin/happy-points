@@ -114,6 +114,26 @@ All modals follow a consistent pattern:
 - Added task completion workflow with admin approval
 - Enhanced error handling for login and password changes
 - Added username propagation across database documents
+- **Code Refactoring**: Eliminated duplicate functions across modal components with shared utilities
+
+## Shared Utilities and Hooks
+
+### Status Badge Utilities (`/src/lib/utils/statusBadges.tsx`)
+Centralized status badge functions to eliminate duplication:
+- `getApplicationStatusBadge(status)` - For task applications and join requests (pending/approved/rejected)
+- `getInvitationStatusBadge(invitation)` - For group invitations with expiry logic
+- `getTaskStatusBadge(task)` - For task active/inactive status
+
+### Custom Hooks
+- `useModalData<T>` (`/src/hooks/useModalData.ts`) - Generic hook for modal data loading with error handling and loading states
+- `useApproveReject` (`/src/hooks/useApproveReject.ts`) - Reusable hook for approve/reject operations with consistent state management
+
+### Refactored Components
+The following modals now use shared utilities:
+- `TaskApplicationsModal` - Uses `useModalData` and `useApproveReject` hooks
+- `ReviewJoinRequestsModal` - Uses `useModalData` and `useApproveReject` hooks  
+- `ManageInvitationsModal` - Uses `useModalData` hook and `getInvitationStatusBadge`
+- `ManageTasksModal` - Uses `getTaskStatusBadge`
 
 ## Development Notes
 - Always run linting after code changes
@@ -121,6 +141,9 @@ All modals follow a consistent pattern:
 - Follow existing component patterns for consistency
 - Test authentication flows thoroughly
 - Ensure proper error handling in all async operations
+- **New modals should use shared utilities**: Import status badge functions and hooks instead of creating duplicates
+- **Use `useModalData` for data loading**: Provides consistent loading states and error handling
+- **Use `useApproveReject` for approve/reject workflows**: Handles common patterns with proper state management
 
 ## Firebase Indexes
 Some queries require composite indexes. Create them through the Firebase Console when prompted by errors during development.

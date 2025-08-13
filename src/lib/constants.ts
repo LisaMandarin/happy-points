@@ -5,6 +5,7 @@ export const COLLECTIONS = {
   GROUPS: 'groups',
   GROUP_MEMBERS: 'groupMembers',
   GROUP_INVITATIONS: 'groupInvitations',
+  GROUP_JOIN_REQUESTS: 'groupJoinRequests',
   GROUP_TASKS: 'groupTasks',
   TASK_COMPLETIONS: 'taskCompletions',
   TEST: 'test',

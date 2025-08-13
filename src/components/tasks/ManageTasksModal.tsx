@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Modal, Button, Alert, Badge, LoadingSpinner } from '@/components/ui'
+import { Modal, Button, Alert, LoadingSpinner, Badge } from '@/components/ui'
 import { GroupTask, Group } from '@/types'
 import { getGroupTasks, deleteGroupTask, updateGroupTask } from '@/lib/tasks'
 import { formatDate, formatPoints } from '@/lib/utils'
+import { getTaskStatusBadge } from '@/lib/utils/statusBadges'
 
 interface ManageTasksModalProps {
   isOpen: boolean
@@ -90,13 +91,6 @@ const ManageTasksModal: React.FC<ManageTasksModalProps> = ({
     }, 3000)
   }
 
-  const getStatusBadge = (task: GroupTask) => {
-    if (task.isActive) {
-      return <Badge variant="success" size="sm">Active</Badge>
-    } else {
-      return <Badge variant="default" size="sm">Inactive</Badge>
-    }
-  }
 
   return (
     <Modal
@@ -142,7 +136,7 @@ const ManageTasksModal: React.FC<ManageTasksModalProps> = ({
                       <h4 className="font-medium text-gray-900">
                         {task.title}
                       </h4>
-                      {getStatusBadge(task)}
+                      {getTaskStatusBadge(task)}
                       <Badge variant="info" size="sm">
                         {formatPoints(task.points)} pts
                       </Badge>

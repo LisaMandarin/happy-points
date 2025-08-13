@@ -20,11 +20,13 @@ import {
   Group,
   GroupMember,
   GroupInvitation,
+  GroupJoinRequest,
   CreateGroupData,
   JoinGroupData,
   InviteToGroupData,
   GroupRole,
   InvitationStatus,
+  JoinRequestStatus,
 } from '@/types'
 import { 
   COLLECTIONS, 
@@ -168,7 +170,7 @@ export const getUserGroups = async (userId: string): Promise<Group[]> => {
 }
 
 /**
- * Join group by code
+ * Join group by code (now creates a join request for admin approval)
  */
 export const joinGroupByCode = async (
   userId: string,
@@ -177,49 +179,8 @@ export const joinGroupByCode = async (
   groupCode: string
 ): Promise<void> => {
   try {
-    const group = await getGroupByCode(groupCode)
-    
-    if (!group) {
-      throw new Error(ERROR_MESSAGES.GROUP.INVALID_CODE)
-    }
-
-    // Check if user is already a member
-    const existingMember = await getGroupMember(group.id, userId)
-    if (existingMember) {
-      throw new Error(ERROR_MESSAGES.GROUP.ALREADY_MEMBER)
-    }
-
-    // Check if group is full
-    if (group.memberCount >= group.maxMembers) {
-      throw new Error(ERROR_MESSAGES.GROUP.GROUP_FULL)
-    }
-
-    // Add user as member and increment member count
-    await runTransaction(db, async (transaction) => {
-      const groupRef = doc(db, COLLECTIONS.GROUPS, group.id)
-      
-      // Add member
-      const membersRef = collection(db, COLLECTIONS.GROUP_MEMBERS)
-      const newMemberRef = doc(membersRef)
-      const memberData = {
-        groupId: group.id,
-        userId,
-        userName,
-        userEmail,
-        role: 'member' as GroupRole,
-        joinedAt: serverTimestamp(),
-        pointsEarned: 0,
-        pointsRedeemed: 0,
-      }
-      
-      transaction.set(newMemberRef, memberData)
-      
-      // Update group member count
-      transaction.update(groupRef, {
-        memberCount: increment(1),
-        updatedAt: serverTimestamp(),
-      })
-    })
+    // Use the new join request system instead of immediate membership
+    await submitJoinRequest(userId, userName, userEmail, groupCode)
   } catch (error) {
     console.error('Error joining group:', error)
     if (error instanceof Error) {
@@ -559,4 +520,343 @@ export const generateInvitationLink = (invitationCode: string): string => {
     : process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
   
   return `${baseUrl}/invite/${invitationCode}`
+}
+
+/**
+ * Get pending group invitations for admin's groups
+ */
+export const getPendingGroupInvitations = async (adminId: string): Promise<GroupInvitation[]> => {
+  try {
+    const invitationsRef = collection(db, COLLECTIONS.GROUP_INVITATIONS)
+    const pendingQuery = query(
+      invitationsRef,
+      where('adminId', '==', adminId),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    )
+    
+    const snapshot = await getDocs(pendingQuery)
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate?.() || new Date(),
+      expiresAt: doc.data().expiresAt?.toDate?.() || new Date(),
+    })) as GroupInvitation[]
+  } catch (error) {
+    console.error('Error fetching pending group invitations:', error)
+    return []
+  }
+}
+
+/**
+ * Get group and member statistics for admin's groups
+ */
+export const getAdminGroupStats = async (adminId: string) => {
+  try {
+    // Get all groups where user is admin
+    const groupsRef = collection(db, COLLECTIONS.GROUPS)
+    const adminGroupsQuery = query(groupsRef, where('adminId', '==', adminId))
+    const adminGroupsSnapshot = await getDocs(adminGroupsQuery)
+    
+    if (adminGroupsSnapshot.empty) {
+      return {
+        totalGroups: 0,
+        totalMembers: 0,
+        pendingInvitations: 0,
+        pendingJoinRequests: 0,
+        recentJoins: 0,
+        averageMembersPerGroup: 0
+      }
+    }
+    
+    const adminGroupIds = adminGroupsSnapshot.docs.map(doc => doc.id)
+    const groups = adminGroupsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+    
+    // Calculate total members across all admin groups
+    const totalMembers = groups.reduce((sum, group: any) => sum + (group.memberCount || 0), 0)
+    
+    // Get pending invitations count
+    const invitationsRef = collection(db, COLLECTIONS.GROUP_INVITATIONS)
+    const pendingInvitationsQuery = query(
+      invitationsRef,
+      where('adminId', '==', adminId),
+      where('status', '==', 'pending')
+    )
+    const pendingInvitationsSnapshot = await getDocs(pendingInvitationsQuery)
+    
+    // Get pending join requests count
+    const joinRequestsRef = collection(db, COLLECTIONS.GROUP_JOIN_REQUESTS)
+    const pendingJoinRequestsQuery = query(
+      joinRequestsRef,
+      where('groupId', 'in', adminGroupIds),
+      where('status', '==', 'pending')
+    )
+    const pendingJoinRequestsSnapshot = await getDocs(pendingJoinRequestsQuery)
+    
+    // Get recent joins (last 7 days)
+    const sevenDaysAgo = new Date()
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    
+    const membersRef = collection(db, COLLECTIONS.GROUP_MEMBERS)
+    const recentJoinsQuery = query(
+      membersRef,
+      where('groupId', 'in', adminGroupIds),
+      where('joinedAt', '>=', sevenDaysAgo)
+    )
+    const recentJoinsSnapshot = await getDocs(recentJoinsQuery)
+    
+    return {
+      totalGroups: adminGroupsSnapshot.size,
+      totalMembers,
+      pendingInvitations: pendingInvitationsSnapshot.size,
+      pendingJoinRequests: pendingJoinRequestsSnapshot.size,
+      recentJoins: recentJoinsSnapshot.size,
+      averageMembersPerGroup: totalMembers / adminGroupsSnapshot.size
+    }
+  } catch (error) {
+    console.error('Error fetching admin group stats:', error)
+    return {
+      totalGroups: 0,
+      totalMembers: 0,
+      pendingInvitations: 0,
+      pendingJoinRequests: 0,
+      recentJoins: 0,
+      averageMembersPerGroup: 0
+    }
+  }
+}
+
+/**
+ * Submit a join request for a group (replaces immediate joining)
+ */
+export const submitJoinRequest = async (
+  userId: string,
+  userName: string,
+  userEmail: string,
+  groupCode: string
+): Promise<void> => {
+  try {
+    const group = await getGroupByCode(groupCode)
+    
+    if (!group) {
+      throw new Error(ERROR_MESSAGES.GROUP.INVALID_CODE)
+    }
+
+    // Check if user is already a member
+    const existingMember = await getGroupMember(group.id, userId)
+    if (existingMember) {
+      throw new Error(ERROR_MESSAGES.GROUP.ALREADY_MEMBER)
+    }
+
+    // Check if user already has a pending request
+    const joinRequestsRef = collection(db, COLLECTIONS.GROUP_JOIN_REQUESTS)
+    const existingRequestQuery = query(
+      joinRequestsRef,
+      where('groupId', '==', group.id),
+      where('userId', '==', userId),
+      where('status', '==', 'pending')
+    )
+    const existingRequestSnapshot = await getDocs(existingRequestQuery)
+    
+    if (!existingRequestSnapshot.empty) {
+      throw new Error('You already have a pending join request for this group.')
+    }
+
+    // Check if group is full
+    if (group.memberCount >= group.maxMembers) {
+      throw new Error(ERROR_MESSAGES.GROUP.GROUP_FULL)
+    }
+
+    // Create join request
+    const joinRequestData = {
+      groupId: group.id,
+      groupName: group.name,
+      userId,
+      userName,
+      userEmail,
+      status: 'pending' as JoinRequestStatus,
+      requestedAt: serverTimestamp(),
+    }
+    
+    await addDoc(joinRequestsRef, joinRequestData)
+  } catch (error) {
+    console.error('Error submitting join request:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to submit join request')
+  }
+}
+
+/**
+ * Get pending join requests for admin's groups
+ */
+export const getPendingJoinRequests = async (adminId: string): Promise<GroupJoinRequest[]> => {
+  try {
+    // First, get all groups where user is admin
+    const groupsRef = collection(db, COLLECTIONS.GROUPS)
+    const adminGroupsQuery = query(groupsRef, where('adminId', '==', adminId))
+    const adminGroupsSnapshot = await getDocs(adminGroupsQuery)
+    
+    if (adminGroupsSnapshot.empty) {
+      return []
+    }
+    
+    const adminGroupIds = adminGroupsSnapshot.docs.map(doc => doc.id)
+    
+    // Get pending join requests for these groups
+    const joinRequestsRef = collection(db, COLLECTIONS.GROUP_JOIN_REQUESTS)
+    const pendingRequestsQuery = query(
+      joinRequestsRef,
+      where('groupId', 'in', adminGroupIds),
+      where('status', '==', 'pending'),
+      orderBy('requestedAt', 'desc')
+    )
+    
+    const snapshot = await getDocs(pendingRequestsQuery)
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      requestedAt: doc.data().requestedAt?.toDate?.() || new Date(),
+    })) as GroupJoinRequest[]
+  } catch (error) {
+    console.error('Error fetching pending join requests:', error)
+    return []
+  }
+}
+
+/**
+ * Approve a join request and add user as member
+ */
+export const approveJoinRequest = async (
+  requestId: string,
+  adminId: string,
+  adminName: string
+): Promise<void> => {
+  try {
+    await runTransaction(db, async (transaction) => {
+      // Get the join request
+      const requestRef = doc(db, COLLECTIONS.GROUP_JOIN_REQUESTS, requestId)
+      const requestSnap = await transaction.get(requestRef)
+      
+      if (!requestSnap.exists()) {
+        throw new Error('Join request not found')
+      }
+      
+      const joinRequest = requestSnap.data() as GroupJoinRequest
+      
+      if (joinRequest.status !== 'pending') {
+        throw new Error('Join request has already been processed')
+      }
+      
+      // Get the group to verify admin and check capacity
+      const groupRef = doc(db, COLLECTIONS.GROUPS, joinRequest.groupId)
+      const groupSnap = await transaction.get(groupRef)
+      
+      if (!groupSnap.exists()) {
+        throw new Error('Group not found')
+      }
+      
+      const group = groupSnap.data() as Group
+      
+      if (group.adminId !== adminId) {
+        throw new Error('Only group admin can approve join requests')
+      }
+      
+      if (group.memberCount >= group.maxMembers) {
+        throw new Error('Group is full')
+      }
+      
+      // Check if user is already a member (race condition protection)
+      const existingMember = await getGroupMember(joinRequest.groupId, joinRequest.userId)
+      if (existingMember) {
+        throw new Error('User is already a member of this group')
+      }
+      
+      // Add user as member
+      const membersRef = collection(db, COLLECTIONS.GROUP_MEMBERS)
+      const newMemberRef = doc(membersRef)
+      const memberData = {
+        groupId: joinRequest.groupId,
+        userId: joinRequest.userId,
+        userName: joinRequest.userName,
+        userEmail: joinRequest.userEmail,
+        role: 'member' as GroupRole,
+        joinedAt: serverTimestamp(),
+        pointsEarned: 0,
+        pointsRedeemed: 0,
+      }
+      
+      transaction.set(newMemberRef, memberData)
+      
+      // Update group member count
+      transaction.update(groupRef, {
+        memberCount: increment(1),
+        updatedAt: serverTimestamp(),
+      })
+      
+      // Update join request status
+      transaction.update(requestRef, {
+        status: 'approved',
+        processedAt: serverTimestamp(),
+        processedBy: adminId,
+        processedByName: adminName,
+      })
+    })
+  } catch (error) {
+    console.error('Error approving join request:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to approve join request')
+  }
+}
+
+/**
+ * Reject a join request
+ */
+export const rejectJoinRequest = async (
+  requestId: string,
+  adminId: string,
+  adminName: string,
+  reason?: string
+): Promise<void> => {
+  try {
+    const requestRef = doc(db, COLLECTIONS.GROUP_JOIN_REQUESTS, requestId)
+    const requestSnap = await getDoc(requestRef)
+    
+    if (!requestSnap.exists()) {
+      throw new Error('Join request not found')
+    }
+    
+    const joinRequest = requestSnap.data() as GroupJoinRequest
+    
+    if (joinRequest.status !== 'pending') {
+      throw new Error('Join request has already been processed')
+    }
+    
+    // Verify admin permissions
+    const group = await getGroup(joinRequest.groupId)
+    if (!group || group.adminId !== adminId) {
+      throw new Error('Only group admin can reject join requests')
+    }
+    
+    // Update join request status
+    await updateDoc(requestRef, {
+      status: 'rejected',
+      processedAt: serverTimestamp(),
+      processedBy: adminId,
+      processedByName: adminName,
+      rejectionReason: reason || 'No reason provided',
+    })
+  } catch (error) {
+    console.error('Error rejecting join request:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to reject join request')
+  }
 }
