@@ -72,7 +72,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ userProfile: profile, loading: false })
       } else {
         // Fallback profile
-        const now = new Date().toISOString()
+        const now = new Date()
         const fallbackProfile: UserProfile = {
           id: user.uid,
           email: user.email || '',
@@ -89,7 +89,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.error('Error ensuring user profile:', error)
       
       // Set fallback profile even on error
-      const now = new Date().toISOString()
+      const now = new Date()
       const fallbackProfile: UserProfile = {
         id: user.uid,
         email: user.email || '',

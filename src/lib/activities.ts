@@ -243,6 +243,20 @@ export const Activities = {
     pointsAmount: pointsAwarded,
   }),
 
+  taskApplicationRejected: (userId: string, groupId: string, groupName: string, taskId: string, taskTitle: string, adminName: string, rejectionReason: string): ActivityData => ({
+    userId,
+    type: 'task_application_rejected',
+    title: 'Task completion rejected',
+    description: `Your completion of "${taskTitle}" was rejected by ${adminName}. ${rejectionReason}`,
+    icon: '❌',
+    groupId,
+    groupName,
+    taskId,
+    taskTitle,
+    relatedUserName: adminName,
+    data: { rejectionReason },
+  }),
+
   profileUpdated: (userId: string, field: string): ActivityData => ({
     userId,
     type: 'profile_updated',

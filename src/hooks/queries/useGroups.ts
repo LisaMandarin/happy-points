@@ -14,7 +14,9 @@ import {
   approveJoinRequest,
   rejectJoinRequest
 } from '@/lib/groups'
+import { awardPointsToMember } from '@/lib/tasks'
 import { Group, GroupMember, GroupInvitation, GroupJoinRequest, CreateGroupData } from '@/types'
+import { useAuthStore } from '@/stores/authStore'
 
 // Query Keys
 export const groupKeys = {
@@ -186,6 +188,48 @@ export const useRejectJoinRequest = () => {
       reason?: string;
     }) => rejectJoinRequest(requestId, adminId, adminName, reason),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['groups'] })
+    },
+  })
+}
+
+export const useAwardPoints = () => {
+  const queryClient = useQueryClient()
+  const { refreshProfile } = useAuthStore()
+  
+  return useMutation({
+    mutationFn: ({ 
+      groupId, 
+      memberId, 
+      adminId, 
+      adminName, 
+      points, 
+      taskId, 
+      taskTitle 
+    }: {
+      groupId: string;
+      memberId: string;
+      adminId: string;
+      adminName: string;
+      points: number;
+      taskId?: string;
+      taskTitle?: string;
+    }) => awardPointsToMember(groupId, memberId, adminId, adminName, points, taskId, taskTitle),
+    onSuccess: (_, { groupId, memberId, adminId }) => {
+      // Invalidate group-related queries
+      queryClient.invalidateQueries({ queryKey: groupKeys.members(groupId) })
+      queryClient.invalidateQueries({ queryKey: groupKeys.list(adminId) })
+      
+      // Invalidate transaction queries for the member
+      queryClient.invalidateQueries({ queryKey: ['transactions', memberId] })
+      
+      // Refresh the member's profile in auth store if they're the current user
+      const currentUser = useAuthStore.getState().user
+      if (currentUser && currentUser.uid === memberId) {
+        refreshProfile(memberId)
+      }
+      
+      // Invalidate all group queries to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['groups'] })
     },
   })

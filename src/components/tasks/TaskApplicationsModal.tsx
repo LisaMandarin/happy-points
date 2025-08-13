@@ -67,7 +67,8 @@ const TaskApplicationsModal: React.FC<TaskApplicationsModalProps> = ({
   const {
     handleApprove,
     handleReject,
-    processing,
+    approvingId,
+    rejectingId,
     error: processError,
     successMessage
   } = useApproveReject({
@@ -164,10 +165,10 @@ const TaskApplicationsModal: React.FC<TaskApplicationsModalProps> = ({
                         <Button
                           size="sm"
                           onClick={() => handleApprove(application.id, adminId, adminName)}
-                          disabled={processing === application.id}
+                          disabled={approvingId === application.id || rejectingId === application.id}
                           className="bg-green-600 hover:bg-green-700"
                         >
-                          {processing === application.id ? (
+                          {approvingId === application.id ? (
                             <LoadingSpinner size="sm" />
                           ) : (
                             'Approve'
@@ -177,10 +178,10 @@ const TaskApplicationsModal: React.FC<TaskApplicationsModalProps> = ({
                           size="sm"
                           variant="outline"
                           onClick={() => handleReject(application.id, adminId, adminName, 'Declined by admin')}
-                          disabled={processing === application.id}
+                          disabled={approvingId === application.id || rejectingId === application.id}
                           className="border-red-300 text-red-700 hover:bg-red-50"
                         >
-                          {processing === application.id ? (
+                          {rejectingId === application.id ? (
                             <LoadingSpinner size="sm" />
                           ) : (
                             'Reject'

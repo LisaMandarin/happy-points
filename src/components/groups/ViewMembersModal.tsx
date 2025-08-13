@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect } from 'react'
 import { Modal, Button, LoadingSpinner, Badge, Alert } from '@/components/ui'
-import { Group, GroupMember } from '@/types'
+import { Group, GroupMember, UserProfile } from '@/types'
 import { getGroupMembers } from '@/lib/groups'
+import { getUserProfile } from '@/lib/firestore'
 import { formatDate, formatPoints } from '@/lib/utils'
 
 interface ViewMembersModalProps {
@@ -24,6 +25,7 @@ const ViewMembersModal: React.FC<ViewMembersModalProps> = ({
   onMemberClick
 }) => {
   const [members, setMembers] = useState<GroupMember[]>([])
+  const [memberProfiles, setMemberProfiles] = useState<Map<string, UserProfile>>(new Map())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -39,6 +41,22 @@ const ViewMembersModal: React.FC<ViewMembersModalProps> = ({
       setError(null)
       const groupMembers = await getGroupMembers(group.id)
       setMembers(groupMembers)
+      
+      // Load user profiles for current points display
+      const profilesMap = new Map<string, UserProfile>()
+      await Promise.all(
+        groupMembers.map(async (member) => {
+          try {
+            const profile = await getUserProfile(member.userId)
+            if (profile) {
+              profilesMap.set(member.userId, profile)
+            }
+          } catch (error) {
+            console.error('Error loading profile for user:', member.userId, error)
+          }
+        })
+      )
+      setMemberProfiles(profilesMap)
     } catch (error) {
       console.error('Error loading members:', error)
       setError('Failed to load group members')

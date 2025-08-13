@@ -16,6 +16,7 @@ interface GroupCardProps {
   onManageTasks?: () => void
   onViewApplications?: () => void
   onReviewRequests?: () => void
+  onViewTasks?: () => void
 }
 
 const GroupCard: React.FC<GroupCardProps> = ({
@@ -27,7 +28,8 @@ const GroupCard: React.FC<GroupCardProps> = ({
   onCreateTask,
   onManageTasks,
   onViewApplications,
-  onReviewRequests
+  onReviewRequests,
+  onViewTasks
 }) => {
   const memberPercentage = (group.memberCount / group.maxMembers) * 100
   const isAdmin = currentUser?.id === group.adminId
@@ -153,7 +155,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
             </div>
           </div>
         ) : (
-          <div>
+          <div className="flex flex-wrap gap-1">
             <Button 
               size="sm" 
               variant="outline"
@@ -161,6 +163,14 @@ const GroupCard: React.FC<GroupCardProps> = ({
               className="text-xs"
             >
               👥 View Members
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={onViewTasks}
+              className="text-xs"
+            >
+              📋 View Tasks
             </Button>
           </div>
         )}

@@ -13,10 +13,10 @@ export const transactionKeys = {
 }
 
 // Transaction Queries
-export const useUserTransactions = (userId?: string, limit?: number) => {
+export const useUserTransactions = (userId?: string, limit = 5) => {
   return useQuery({
     queryKey: [...transactionKeys.list(userId || ''), limit],
-    queryFn: () => getUserTransactions(userId!, limit),
+    queryFn: () => getUserTransactions(userId!, limit as any),
     enabled: !!userId,
   })
 }
@@ -26,13 +26,11 @@ export const useAddTransaction = () => {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: ({ userId, transactionData }: { 
-      userId: string; 
-      transactionData: CreateTransactionData 
-    }) => addPointsTransaction(userId, transactionData),
-    onSuccess: (_, { userId }) => {
+    mutationFn: (transactionData: CreateTransactionData) => 
+      addPointsTransaction(transactionData),
+    onSuccess: (_, transactionData) => {
       // Invalidate user transactions and user profile
-      queryClient.invalidateQueries({ queryKey: transactionKeys.list(userId) })
+      queryClient.invalidateQueries({ queryKey: transactionKeys.list(transactionData.userId) })
       queryClient.invalidateQueries({ queryKey: ['auth'] })
     },
   })

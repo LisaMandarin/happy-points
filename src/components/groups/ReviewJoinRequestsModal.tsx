@@ -33,7 +33,8 @@ const ReviewJoinRequestsModal: React.FC<ReviewJoinRequestsModalProps> = ({
   const {
     handleApprove,
     handleReject,
-    processing,
+    approvingId,
+    rejectingId,
     error: processError,
     successMessage
   } = useApproveReject({
@@ -118,10 +119,10 @@ const ReviewJoinRequestsModal: React.FC<ReviewJoinRequestsModalProps> = ({
                     <Button
                       size="sm"
                       onClick={() => handleApprove(request.id, adminId, adminName)}
-                      disabled={processing === request.id}
+                      disabled={approvingId === request.id || rejectingId === request.id}
                       className="bg-green-600 hover:bg-green-700"
                     >
-                      {processing === request.id ? (
+                      {approvingId === request.id ? (
                         <LoadingSpinner size="sm" />
                       ) : (
                         'Approve'
@@ -131,10 +132,10 @@ const ReviewJoinRequestsModal: React.FC<ReviewJoinRequestsModalProps> = ({
                       size="sm"
                       variant="outline"
                       onClick={() => handleReject(request.id, adminId, adminName, 'Request declined by admin')}
-                      disabled={processing === request.id}
+                      disabled={approvingId === request.id || rejectingId === request.id}
                       className="border-red-300 text-red-700 hover:bg-red-50"
                     >
-                      {processing === request.id ? (
+                      {rejectingId === request.id ? (
                         <LoadingSpinner size="sm" />
                       ) : (
                         'Reject'

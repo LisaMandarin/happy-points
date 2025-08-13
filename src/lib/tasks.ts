@@ -107,6 +107,24 @@ export const getGroupTasks = async (groupId: string): Promise<GroupTask[]> => {
 }
 
 /**
+ * Get a single task by ID
+ */
+export const getGroupTask = async (taskId: string): Promise<GroupTask | null> => {
+  try {
+    const taskRef = doc(db, COLLECTIONS.GROUP_TASKS, taskId)
+    const taskSnap = await getDoc(taskRef)
+    
+    if (taskSnap.exists()) {
+      return { id: taskSnap.id, ...taskSnap.data() } as GroupTask
+    }
+    return null
+  } catch (error) {
+    console.error('Error fetching group task:', error)
+    return null
+  }
+}
+
+/**
  * Get active tasks for a group (for members to view)
  */
 export const getActiveGroupTasks = async (groupId: string): Promise<GroupTask[]> => {
@@ -216,11 +234,7 @@ export const completeTask = async (
       throw new Error(ERROR_MESSAGES.TASK.NOT_ACTIVE)
     }
 
-    // Check if user has a pending application for this task
-    const existingCompletion = await getTaskCompletion(taskId, userId)
-    if (existingCompletion && existingCompletion.status === 'pending') {
-      throw new Error('You already have a pending application for this task. Please wait for admin approval.')
-    }
+    // Allow multiple task completions - users can claim tasks multiple times
 
     // Create task completion record
     const completionsRef = collection(db, COLLECTIONS.TASK_COMPLETIONS)
@@ -433,6 +447,15 @@ export const rejectTaskCompletion = async (
 ): Promise<void> => {
   try {
     const completionRef = doc(db, COLLECTIONS.TASK_COMPLETIONS, completionId)
+    const completionSnap = await getDoc(completionRef)
+    
+    if (!completionSnap.exists()) {
+      throw new Error('Task completion not found')
+    }
+
+    const completion = completionSnap.data() as TaskCompletion
+    
+    // Update completion status
     await updateDoc(completionRef, {
       status: 'rejected',
       approvedBy: adminId,
@@ -440,6 +463,49 @@ export const rejectTaskCompletion = async (
       approvedAt: serverTimestamp(),
       rejectionReason: reason || 'No reason provided',
     })
+
+    // Get task details for better notification
+    const task = await getTask(completion.taskId)
+    const taskTitle = task?.title || 'Unknown Task'
+
+    // Create notification for the user whose task was rejected
+    try {
+      const { createUserNotification } = await import('./firestore')
+      await createUserNotification(completion.userId, {
+        type: 'general',
+        title: 'Task Application Rejected',
+        message: `Your application for "${taskTitle}" has been rejected by ${adminName}.${reason ? ` Reason: ${reason}` : ''}`,
+        data: {
+          taskId: completion.taskId,
+          taskTitle,
+          completionId,
+          groupId: completion.groupId,
+          adminName,
+          rejectionReason: reason || 'No reason provided'
+        }
+      })
+    } catch (notificationError) {
+      console.error('Error creating rejection notification:', notificationError)
+    }
+
+    // Log activity for the user whose task was rejected
+    try {
+      const { getGroup } = await import('./groups')
+      const group = await getGroup(completion.groupId)
+      if (group) {
+        await logActivity(Activities.taskApplicationRejected(
+          completion.userId,
+          completion.groupId,
+          group.name,
+          completion.taskId,
+          taskTitle,
+          adminName,
+          reason || 'No reason provided'
+        ))
+      }
+    } catch (error) {
+      console.error('Error logging task rejection activity:', error)
+    }
   } catch (error) {
     console.error('Error rejecting task completion:', error)
     throw new Error('Failed to reject task completion')
@@ -461,6 +527,13 @@ export const awardPointsToMember = async (
   try {
     if (points <= 0) {
       throw new Error('Points must be greater than 0')
+    }
+
+    // If taskId is provided but no taskTitle, fetch it
+    let finalTaskTitle = taskTitle
+    if (taskId && !taskTitle) {
+      const task = await getGroupTask(taskId)
+      finalTaskTitle = task?.title
     }
 
     // Use transaction to ensure all updates happen atomically
@@ -492,8 +565,8 @@ export const awardPointsToMember = async (
       // Create transaction record
       const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS)
       let description = `Points awarded by admin: ${adminName}`
-      if (taskTitle) {
-        description = `Task completed: ${taskTitle} (awarded by ${adminName})`
+      if (finalTaskTitle) {
+        description = `Task completed: ${finalTaskTitle} (awarded by ${adminName})`
       }
       
       const transactionData = {

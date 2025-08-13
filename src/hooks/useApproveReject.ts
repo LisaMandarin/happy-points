@@ -21,13 +21,14 @@ export const useApproveReject = ({
   approveErrorMessage = 'Failed to approve',
   rejectErrorMessage = 'Failed to reject'
 }: UseApproveRejectOptions) => {
-  const [processing, setProcessing] = useState<string | null>(null)
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const handleApprove = async (id: string, adminId: string, adminName: string) => {
     try {
-      setProcessing(id)
+      setApprovingId(id)
       setError(null)
       setSuccessMessage(null)
       
@@ -41,13 +42,13 @@ export const useApproveReject = ({
     } catch (error) {
       setError(error instanceof Error ? error.message : approveErrorMessage)
     } finally {
-      setProcessing(null)
+      setApprovingId(null)
     }
   }
 
   const handleReject = async (id: string, adminId: string, adminName: string, reason?: string) => {
     try {
-      setProcessing(id)
+      setRejectingId(id)
       setError(null)
       setSuccessMessage(null)
       
@@ -61,14 +62,15 @@ export const useApproveReject = ({
     } catch (error) {
       setError(error instanceof Error ? error.message : rejectErrorMessage)
     } finally {
-      setProcessing(null)
+      setRejectingId(null)
     }
   }
 
   return {
     handleApprove,
     handleReject,
-    processing,
+    approvingId,
+    rejectingId,
     error,
     successMessage
   }

@@ -7,7 +7,7 @@ import { signOut } from '@/lib/auth'
 
 // React Query hooks
 import { useUserTransactions } from '@/hooks/queries/useTransactions'
-import { useUserGroups, useCreateGroup, useJoinGroup, useInviteUsers } from '@/hooks/queries/useGroups'
+import { useUserGroups, useCreateGroup, useJoinGroup, useInviteUsers, useAwardPoints } from '@/hooks/queries/useGroups'
 import { useUserNotifications } from '@/hooks/queries/useNotifications'
 
 import { Group, CreateGroupFormData } from '@/types'
@@ -24,6 +24,7 @@ import CreateTaskModal from '@/components/tasks/CreateTaskModal'
 import ManageTasksModal from '@/components/tasks/ManageTasksModal'
 import TaskApplicationModal from '@/components/tasks/TaskApplicationModal'
 import TaskApplicationsModal from '@/components/tasks/TaskApplicationsModal'
+import ViewTasksModal from '@/components/tasks/ViewTasksModal'
 import AwardPointsModal from '@/components/groups/AwardPointsModal'
 import ReviewJoinRequestsModal from '@/components/groups/ReviewJoinRequestsModal'
 import { Button, Alert } from 'antd'
@@ -41,6 +42,7 @@ export default function Dashboard() {
   const createGroupMutation = useCreateGroup()
   const joinGroupMutation = useJoinGroup()
   const inviteUsersMutation = useInviteUsers()
+  const awardPointsMutation = useAwardPoints()
 
   // UI state
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false)
@@ -50,15 +52,18 @@ export default function Dashboard() {
   const [showViewMembersModal, setShowViewMembersModal] = useState(false)
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false)
+  const [showEditTaskModal, setShowEditTaskModal] = useState(false)
   const [showManageTasksModal, setShowManageTasksModal] = useState(false)
   const [showTaskApplicationModal, setShowTaskApplicationModal] = useState(false)
   const [showTaskApplicationsModal, setShowTaskApplicationsModal] = useState(false)
+  const [showViewTasksModal, setShowViewTasksModal] = useState(false)
   const [showAwardPointsModal, setShowAwardPointsModal] = useState(false)
   const [showReviewJoinRequestsModal, setShowReviewJoinRequestsModal] = useState(false)
   
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
   const [selectedTask, setSelectedTask] = useState<any>(null)
   const [selectedMember, setSelectedMember] = useState<any>(null)
+  const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0)
 
   // Messages
   const [successMessage, setSuccessMessage] = useState('')
@@ -136,6 +141,9 @@ export default function Dashboard() {
       case 'review-requests':
         setShowReviewJoinRequestsModal(true)
         break
+      case 'view-tasks':
+        setShowViewTasksModal(true)
+        break
     }
   }
 
@@ -171,14 +179,20 @@ export default function Dashboard() {
   }
 
   const handleCreateTask = async (taskData: { title: string; description: string; points: number }) => {
-    if (!selectedGroup || !userProfile) {
+    if (!selectedGroup || !userProfile || !user) {
       throw new Error('Group or user data not available')
     }
     
     try {
-      // TODO: Implement actual create task API call
-      console.log('Creating task for group:', selectedGroup.id, taskData)
+      const { createGroupTask } = await import('@/lib/tasks')
+      await createGroupTask(
+        selectedGroup.id,
+        user.uid,
+        userProfile.name,
+        taskData
+      )
       setSuccessMessage('Task created successfully!')
+      setTaskRefreshTrigger(prev => prev + 1)
       clearMessages()
     } catch (error) {
       console.error('Error creating task:', error)
@@ -189,15 +203,30 @@ export default function Dashboard() {
   }
 
   const handleEditTask = (task: any) => {
-    // TODO: Implement edit task functionality
-    console.log('Editing task:', task)
     setSelectedTask(task)
-    // You could open an edit task modal here
+    setShowEditTaskModal(true)
+  }
+
+  const handleUpdateTask = async (taskId: string, taskData: { title: string; description: string; points: number }) => {
+    try {
+      const { updateGroupTask } = await import('@/lib/tasks')
+      await updateGroupTask(taskId, taskData)
+      setSuccessMessage('Task updated successfully!')
+      setTaskRefreshTrigger(prev => prev + 1)
+      clearMessages()
+    } catch (error) {
+      console.error('Error updating task:', error)
+      setErrorMessage('Failed to update task. Please try again.')
+      clearMessages()
+      throw error
+    }
   }
 
   const handleApplicationProcessed = () => {
     // Refresh data when task applications are processed
     console.log('Task application processed')
+    // Refresh user profile to show updated points
+    refreshProfile()
   }
 
   const handleApplicationSubmitted = () => {
@@ -207,13 +236,21 @@ export default function Dashboard() {
     clearMessages()
   }
 
+  const handleTaskClaimed = () => {
+    // Handle when user claims a task
+    console.log('Task claimed')
+    // Refresh user profile to update points if needed
+  }
+
   const closeModals = () => {
     setShowInviteModal(false)
     setShowManageInvitationsModal(false)
     setShowViewMembersModal(false)
     setShowCreateTaskModal(false)
+    setShowEditTaskModal(false)
     setShowManageTasksModal(false)
     setShowTaskApplicationsModal(false)
+    setShowViewTasksModal(false)
     setShowAwardPointsModal(false)
     setShowReviewJoinRequestsModal(false)
     setSelectedGroup(null)
@@ -377,6 +414,7 @@ export default function Dashboard() {
                         onManageTasks={() => openGroupModal(group, 'manage-tasks')}
                         onViewApplications={() => openGroupModal(group, 'task-applications')}
                         onReviewRequests={() => openGroupModal(group, 'review-requests')}
+                        onViewTasks={() => openGroupModal(group, 'view-tasks')}
                       />
                     ))}
                   </div>
@@ -496,12 +534,21 @@ export default function Dashboard() {
             onCreateTask={handleCreateTask}
           />
           
+          <CreateTaskModal
+            isOpen={showEditTaskModal}
+            onClose={closeModals}
+            onCreateTask={handleCreateTask}
+            editingTask={selectedTask}
+            onUpdateTask={handleUpdateTask}
+          />
+          
           <ManageTasksModal
             isOpen={showManageTasksModal}
             onClose={closeModals}
             group={selectedGroup}
             currentUserId={userProfile?.id || ''}
             onEditTask={handleEditTask}
+            refreshTrigger={taskRefreshTrigger}
           />
           
           <TaskApplicationsModal
@@ -513,14 +560,34 @@ export default function Dashboard() {
             onApplicationProcessed={handleApplicationProcessed}
           />
           
+          <ViewTasksModal
+            isOpen={showViewTasksModal}
+            onClose={closeModals}
+            group={selectedGroup}
+            userId={userProfile?.id || ''}
+            userName={userProfile?.name || ''}
+            onTaskClaimed={handleTaskClaimed}
+          />
+          
           <AwardPointsModal
             isOpen={showAwardPointsModal}
             onClose={closeModals}
             groupId={selectedGroup?.id}
             member={selectedMember}
             onAwardPoints={async (memberId: string, taskId: string, points: number) => {
-              // TODO: Implement award points logic
-              console.log('Award points:', { memberId, taskId, points })
+              if (!userProfile?.id || !selectedGroup?.id) {
+                throw new Error('Missing required data for awarding points')
+              }
+              
+              await awardPointsMutation.mutateAsync({
+                groupId: selectedGroup.id,
+                memberId,
+                adminId: userProfile.id,
+                adminName: userProfile.name,
+                points,
+                taskId: taskId || undefined,
+                taskTitle: undefined // Task title will be retrieved in the backend if taskId is provided
+              })
             }}
           />
           

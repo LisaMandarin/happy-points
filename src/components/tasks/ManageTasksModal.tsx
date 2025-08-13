@@ -13,6 +13,7 @@ interface ManageTasksModalProps {
   group: Group
   currentUserId: string
   onEditTask: (task: GroupTask) => void
+  refreshTrigger?: number
 }
 
 const ManageTasksModal: React.FC<ManageTasksModalProps> = ({
@@ -20,7 +21,8 @@ const ManageTasksModal: React.FC<ManageTasksModalProps> = ({
   onClose,
   group,
   currentUserId,
-  onEditTask
+  onEditTask,
+  refreshTrigger
 }) => {
   const [tasks, setTasks] = useState<GroupTask[]>([])
   const [loading, setLoading] = useState(false)
@@ -32,7 +34,7 @@ const ManageTasksModal: React.FC<ManageTasksModalProps> = ({
     if (isOpen) {
       loadTasks()
     }
-  }, [isOpen, group.id])
+  }, [isOpen, group.id, refreshTrigger])
 
   const loadTasks = async () => {
     try {
@@ -127,14 +129,20 @@ const ManageTasksModal: React.FC<ManageTasksModalProps> = ({
               <div 
                 key={task.id} 
                 className={`border rounded-lg p-4 ${
-                  task.isActive ? 'bg-white' : 'bg-gray-50'
+                  task.isActive 
+                    ? 'bg-white border-gray-200' 
+                    : 'bg-gray-100 border-gray-300 opacity-75'
                 }`}
               >
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-2">
-                      <h4 className="font-medium text-gray-900">
-                        {task.title}
+                      <h4 className={`font-medium ${
+                        task.isActive ? 'text-gray-900' : 'text-gray-500'
+                      }`}>
+                        {task.isActive ? task.title : (
+                          <span className="line-through">{task.title}</span>
+                        )}
                       </h4>
                       {getTaskStatusBadge(task)}
                       <Badge variant="info" size="sm">
@@ -142,7 +150,9 @@ const ManageTasksModal: React.FC<ManageTasksModalProps> = ({
                       </Badge>
                     </div>
                     
-                    <p className="text-sm text-gray-600 mb-2">
+                    <p className={`text-sm mb-2 ${
+                      task.isActive ? 'text-gray-600' : 'text-gray-500'
+                    }`}>
                       {task.description}
                     </p>
                     

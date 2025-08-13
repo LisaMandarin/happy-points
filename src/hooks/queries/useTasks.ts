@@ -3,9 +3,9 @@ import {
   getGroupTasks,
   getActiveGroupTasks,
   getTask,
-  createTask,
-  updateTask,
-  deleteTask,
+  createGroupTask,
+  updateGroupTask,
+  deleteGroupTask,
   completeTask,
   getTaskCompletion,
   getGroupTaskCompletions,
@@ -55,11 +55,11 @@ export const useTask = (taskId?: string) => {
   })
 }
 
-export const useTaskCompletion = (completionId?: string) => {
+export const useTaskCompletion = (taskId?: string, userId?: string) => {
   return useQuery({
-    queryKey: taskKeys.completion(completionId || ''),
-    queryFn: () => getTaskCompletion(completionId!),
-    enabled: !!completionId,
+    queryKey: taskKeys.completion(`${taskId}-${userId}`),
+    queryFn: () => getTaskCompletion(taskId!, userId!),
+    enabled: !!taskId && !!userId,
   })
 }
 
@@ -92,11 +92,12 @@ export const useCreateTask = () => {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: ({ groupId, taskData, adminId }: { 
+    mutationFn: ({ groupId, taskData, adminId, adminName }: { 
       groupId: string; 
       taskData: CreateTaskData; 
-      adminId: string 
-    }) => createTask(groupId, taskData, adminId),
+      adminId: string;
+      adminName: string; 
+    }) => createGroupTask(groupId, adminId, adminName, taskData),
     onSuccess: (_, { groupId }) => {
       queryClient.invalidateQueries({ queryKey: taskKeys.list(groupId) })
       queryClient.invalidateQueries({ queryKey: taskKeys.active(groupId) })
@@ -109,7 +110,7 @@ export const useUpdateTask = () => {
   
   return useMutation({
     mutationFn: ({ taskId, updates }: { taskId: string; updates: UpdateTaskData }) =>
-      updateTask(taskId, updates),
+      updateGroupTask(taskId, updates),
     onSuccess: (_, { taskId }) => {
       queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) })
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() })
@@ -121,7 +122,7 @@ export const useDeleteTask = () => {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: (taskId: string) => deleteTask(taskId),
+    mutationFn: (taskId: string) => deleteGroupTask(taskId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: taskKeys.lists() })
     },
@@ -132,15 +133,13 @@ export const useCompleteTask = () => {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: ({ taskId, userId, note }: { 
+    mutationFn: ({ taskId, userId, userName }: { 
       taskId: string; 
       userId: string; 
-      note?: string 
-    }) => completeTask(taskId, userId, note),
-    onSuccess: (_, { taskId }) => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.detail(taskId) })
-      queryClient.invalidateQueries({ queryKey: taskKeys.completions() })
-      queryClient.invalidateQueries({ queryKey: taskKeys.applications() })
+      userName: string; 
+    }) => completeTask(taskId, userId, userName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: taskKeys.all })
     },
   })
 }
@@ -149,11 +148,13 @@ export const useApproveTaskCompletion = () => {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: ({ completionId, adminId }: { completionId: string; adminId: string }) =>
-      approveTaskCompletion(completionId, adminId),
+    mutationFn: ({ completionId, adminId, adminName }: { 
+      completionId: string; 
+      adminId: string; 
+      adminName: string; 
+    }) => approveTaskCompletion(completionId, adminId, adminName),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.completions() })
-      queryClient.invalidateQueries({ queryKey: taskKeys.applications() })
+      queryClient.invalidateQueries({ queryKey: taskKeys.all })
       queryClient.invalidateQueries({ queryKey: ['transactions'] })
     },
   })
@@ -163,14 +164,14 @@ export const useRejectTaskCompletion = () => {
   const queryClient = useQueryClient()
   
   return useMutation({
-    mutationFn: ({ completionId, adminId, reason }: { 
+    mutationFn: ({ completionId, adminId, adminName, reason }: { 
       completionId: string; 
       adminId: string; 
-      reason?: string 
-    }) => rejectTaskCompletion(completionId, adminId, reason),
+      adminName: string;
+      reason?: string; 
+    }) => rejectTaskCompletion(completionId, adminId, adminName, reason),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: taskKeys.completions() })
-      queryClient.invalidateQueries({ queryKey: taskKeys.applications() })
+      queryClient.invalidateQueries({ queryKey: taskKeys.all })
     },
   })
 }

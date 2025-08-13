@@ -324,7 +324,7 @@ export const getUserNotifications = async (
     const notifications = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }))
+    })) as any[]
     
     // Sort by createdAt descending (client-side to avoid index requirement)
     return notifications.sort((a, b) => {
