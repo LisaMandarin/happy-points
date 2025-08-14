@@ -13,7 +13,6 @@ interface GroupCardProps {
   onMemberManagement?: () => void
   onTaskManagement?: () => void
   onAwardPoints?: () => void
-  onReviewRequests?: () => void
 }
 
 const GroupCard: React.FC<GroupCardProps> = ({
@@ -21,8 +20,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
   currentUser,
   onMemberManagement,
   onTaskManagement,
-  onAwardPoints,
-  onReviewRequests
+  onAwardPoints
 }) => {
   const memberPercentage = (group.memberCount / group.maxMembers) * 100
   const isAdmin = currentUser?.id === group.adminId
@@ -104,7 +102,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
               onClick={onMemberManagement}
               className="text-xs flex items-center justify-center"
             >
-              👥 Member Management
+              👥 Members
             </Button>
             <Button 
               size="sm" 
@@ -112,7 +110,7 @@ const GroupCard: React.FC<GroupCardProps> = ({
               onClick={onTaskManagement}
               className="text-xs flex items-center justify-center relative"
             >
-              📝 Task Management
+              📝 Tasks
               {pendingItems.some(item => item.actionType === 'task-applications') && (
                 <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
               )}
@@ -126,17 +124,6 @@ const GroupCard: React.FC<GroupCardProps> = ({
                   className="text-xs flex items-center justify-center"
                 >
                   🎁 Award Points
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={onReviewRequests}
-                  className="text-xs flex items-center justify-center relative"
-                >
-                  ✅ Review Requests
-                  {pendingItems.some(item => item.actionType === 'join-requests') && (
-                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
-                  )}
                 </Button>
               </>
             )}

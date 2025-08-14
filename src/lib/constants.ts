@@ -5,7 +5,6 @@ export const COLLECTIONS = {
   GROUPS: 'groups',
   GROUP_MEMBERS: 'groupMembers',
   GROUP_INVITATIONS: 'groupInvitations',
-  GROUP_JOIN_REQUESTS: 'groupJoinRequests',
   GROUP_TASKS: 'groupTasks',
   TASK_COMPLETIONS: 'taskCompletions',
   NOTIFICATIONS: 'notifications',
@@ -77,8 +76,6 @@ export const ERROR_MESSAGES = {
   },
   GROUP: {
     CREATE_FAILED: 'Failed to create group',
-    JOIN_FAILED: 'Failed to join group',
-    INVALID_CODE: 'Invalid group code',
     GROUP_NOT_FOUND: 'Group not found',
     GROUP_FULL: 'Group is full',
     ALREADY_MEMBER: 'You are already a member of this group',
@@ -112,7 +109,6 @@ export const SUCCESS_MESSAGES = {
   },
   GROUP: {
     CREATED: 'Group created successfully!',
-    JOINED: 'Successfully joined the group!',
     INVITATION_SENT: 'Invitations sent successfully!',
     INVITATION_ACCEPTED: 'Invitation accepted! Welcome to the group!',
     MEMBER_REMOVED: 'Member removed successfully',

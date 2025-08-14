@@ -27,7 +27,6 @@ import TaskApplicationsModal from '@/components/tasks/TaskApplicationsModal'
 import ViewTasksModal from '@/components/tasks/ViewTasksModal'
 import AwardPointsModal from '@/components/groups/AwardPointsModal'
 import QuickGrantPointsModal from '@/components/groups/QuickGrantPointsModal'
-import ReviewJoinRequestsModal from '@/components/groups/ReviewJoinRequestsModal'
 import { Button, Alert } from 'antd'
 
 export default function Dashboard() {
@@ -52,7 +51,6 @@ export default function Dashboard() {
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [showTaskApplicationModal, setShowTaskApplicationModal] = useState(false)
   const [showAwardPointsModal, setShowAwardPointsModal] = useState(false)
-  const [showReviewJoinRequestsModal, setShowReviewJoinRequestsModal] = useState(false)
   const [showEditTaskModal, setShowEditTaskModal] = useState(false)
   const [showQuickGrantPointsModal, setShowQuickGrantPointsModal] = useState(false)
   
@@ -112,9 +110,6 @@ export default function Dashboard() {
       case 'award-points':
         setShowAwardPointsModal(true)
         break
-      case 'review-requests':
-        setShowReviewJoinRequestsModal(true)
-        break
     }
   }
 
@@ -123,10 +118,6 @@ export default function Dashboard() {
     setShowAwardPointsModal(true)
   }
 
-  const handleRequestProcessed = () => {
-    // Refresh any data that needs to be updated when requests are processed
-    console.log('Join request processed')
-  }
 
   const handleInviteUsers = async (emails: string[]) => {
     if (!selectedGroup || !userProfile || !user) {
@@ -217,7 +208,6 @@ export default function Dashboard() {
     setShowTaskManagementModal(false)
     setShowEditTaskModal(false)
     setShowAwardPointsModal(false)
-    setShowReviewJoinRequestsModal(false)
     setSelectedGroup(null)
     setSelectedTask(null)
     setSelectedMember(null)
@@ -348,10 +338,7 @@ export default function Dashboard() {
                             className="w-full relative"
                             type="primary"
                           >
-                            🎁 Grant Points
-                            {pendingItems.some(item => item.type === 'admin') && (
-                              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
-                            )}
+                            🎁 Award Points
                           </Button>
                         )}
                         
@@ -372,7 +359,7 @@ export default function Dashboard() {
                         {/* Show helpful info about what each button does */}
                         <div className="text-xs text-gray-500 space-y-1">
                           {isAdminOfAnyGroup && (
-                            <p>• Grant Points: Award points to members in groups you admin ({adminGroups.length} group{adminGroups.length !== 1 ? 's' : ''})</p>
+                            <p>• Award Points: Award points to members in groups you admin ({adminGroups.length} group{adminGroups.length !== 1 ? 's' : ''})</p>
                           )}
                           {isMemberOfAnyGroup && (
                             <p>• Claim Points: Apply for tasks in groups where you're a member ({memberGroups.length} group{memberGroups.length !== 1 ? 's' : ''})</p>
@@ -391,7 +378,6 @@ export default function Dashboard() {
               <PendingActionsPanel
                 currentUser={userProfile}
                 groups={groups}
-                onReviewRequests={(group) => openGroupModal(group, 'review-requests')}
                 onViewApplications={(group) => openGroupModal(group, 'task-management')}
               />
 
@@ -424,7 +410,6 @@ export default function Dashboard() {
                         onMemberManagement={() => openGroupModal(group, 'member-management')}
                         onTaskManagement={() => openGroupModal(group, 'task-management')}
                         onAwardPoints={() => openGroupModal(group, 'award-points')}
-                        onReviewRequests={() => openGroupModal(group, 'review-requests')}
                       />
                     ))}
                   </div>
@@ -562,15 +547,6 @@ export default function Dashboard() {
             }}
           />
           
-          {userProfile?.id && (
-            <ReviewJoinRequestsModal
-              isOpen={showReviewJoinRequestsModal}
-              onClose={closeModals}
-              adminId={userProfile.id}
-              adminName={userProfile.name}
-              onRequestProcessed={handleRequestProcessed}
-            />
-          )}
         </>
       )}
 

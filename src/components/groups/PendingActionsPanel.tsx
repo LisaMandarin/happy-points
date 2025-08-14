@@ -10,14 +10,12 @@ import { formatDate } from '@/lib/utils'
 interface PendingActionsPanelProps {
   currentUser: UserProfile | null
   groups: Group[]
-  onReviewRequests?: (group: Group) => void
   onViewApplications?: (group: Group) => void
 }
 
 const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({
   currentUser,
   groups,
-  onReviewRequests,
   onViewApplications
 }) => {
   const { data: pendingItems = [], isLoading } = useUserPendingItems(currentUser?.id, groups)
@@ -88,15 +86,6 @@ const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({
                       </p>
                     </div>
                     <div className="flex space-x-1">
-                      {item.actionType === 'join-requests' && (
-                        <Button 
-                          size="small" 
-                          type="primary"
-                          onClick={() => item.group && onReviewRequests?.(item.group)}
-                        >
-                          Review
-                        </Button>
-                      )}
                       {item.actionType === 'task-applications' && (
                         <Button 
                           size="small" 

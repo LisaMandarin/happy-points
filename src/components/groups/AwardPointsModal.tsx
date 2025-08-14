@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Modal, Button, Alert, LoadingSpinner } from '@/components/ui'
 import { GroupMember, GroupTask } from '@/types'
 import { getActiveGroupTasks } from '@/lib/tasks'
+import { getGroupMembers } from '@/lib/groups'
 
 interface AwardPointsModalProps {
   isOpen: boolean
@@ -21,6 +22,8 @@ const AwardPointsModal: React.FC<AwardPointsModalProps> = ({
   onAwardPoints
 }) => {
   const [tasks, setTasks] = useState<GroupTask[]>([])
+  const [members, setMembers] = useState<GroupMember[]>([])
+  const [selectedMember, setSelectedMember] = useState<GroupMember | null>(member)
   const [selectedTaskId, setSelectedTaskId] = useState<string>('')
   const [customPoints, setCustomPoints] = useState<string>('')
   const [useCustomPoints, setUseCustomPoints] = useState(false)
@@ -31,9 +34,14 @@ const AwardPointsModal: React.FC<AwardPointsModalProps> = ({
   useEffect(() => {
     if (isOpen && groupId) {
       loadTasks()
+      loadMembers()
       resetForm()
     }
   }, [isOpen, groupId])
+
+  useEffect(() => {
+    setSelectedMember(member)
+  }, [member])
 
   const loadTasks = async () => {
     if (!groupId) return
@@ -51,11 +59,32 @@ const AwardPointsModal: React.FC<AwardPointsModalProps> = ({
     }
   }
 
+  const loadMembers = async () => {
+    if (!groupId) return
+    
+    try {
+      setLoading(true)
+      setError(null)
+      const groupMembers = await getGroupMembers(groupId)
+      // Filter out admins to only show regular members
+      const regularMembers = groupMembers.filter(member => member.role === 'member')
+      setMembers(regularMembers)
+    } catch (error) {
+      console.error('Error loading members:', error)
+      setError('Failed to load group members')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const resetForm = () => {
     setSelectedTaskId('')
     setCustomPoints('')
     setUseCustomPoints(false)
     setError(null)
+    if (!member) {
+      setSelectedMember(null)
+    }
   }
 
   const handleClose = () => {
@@ -79,6 +108,11 @@ const AwardPointsModal: React.FC<AwardPointsModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    if (!selectedMember) {
+      setError('Please select a member')
+      return
+    }
+    
     if (!selectedTaskId && !useCustomPoints) {
       setError('Please select a task or enter custom points')
       return
@@ -92,16 +126,11 @@ const AwardPointsModal: React.FC<AwardPointsModalProps> = ({
       }
     }
 
-    if (!member) {
-      setError('Member data not available')
-      return
-    }
-
     try {
       setSubmitting(true)
       setError(null)
       const pointsToAward = getPointsToAward()
-      await onAwardPoints(member.userId, selectedTaskId, pointsToAward)
+      await onAwardPoints(selectedMember.userId, selectedTaskId, pointsToAward)
       handleClose()
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to award points')
@@ -111,7 +140,7 @@ const AwardPointsModal: React.FC<AwardPointsModalProps> = ({
   }
 
   // Don't render if essential data is missing
-  if (!member || !groupId) {
+  if (!groupId) {
     return null
   }
 
@@ -119,7 +148,7 @@ const AwardPointsModal: React.FC<AwardPointsModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title={`Award Points to ${member.userName}`}
+      title={selectedMember ? `Award Points to ${selectedMember.userName}` : 'Award Points'}
       size="md"
       footer={
         <div className="flex justify-end space-x-3">
@@ -133,7 +162,7 @@ const AwardPointsModal: React.FC<AwardPointsModalProps> = ({
           <Button
             type="submit"
             form="award-points-form"
-            disabled={submitting || loading}
+            disabled={submitting || loading || !selectedMember}
           >
             {submitting ? <LoadingSpinner size="sm" /> : 'Award Points'}
           </Button>
@@ -147,23 +176,59 @@ const AwardPointsModal: React.FC<AwardPointsModalProps> = ({
           </Alert>
         )}
 
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h4 className="font-medium text-gray-900 mb-2">Member Information</h4>
-          <div className="text-sm text-gray-600 space-y-1">
-            <p><span className="font-medium">Name:</span> {member.userName}</p>
-            <p><span className="font-medium">Email:</span> {member.userEmail}</p>
-            <p><span className="font-medium">Current Points Earned:</span> {member.pointsEarned?.toLocaleString() || 0}</p>
+        {!selectedMember ? (
+          <div>
+            <label htmlFor="member" className="block text-sm font-medium text-gray-700 mb-2">
+              Select Member to Award Points
+            </label>
+            <select
+              id="member"
+              value={(selectedMember as GroupMember | null)?.userId || ''}
+              onChange={(e) => {
+                const memberId = e.target.value
+                const foundMember = members.find(m => m.userId === memberId)
+                setSelectedMember(foundMember || null)
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Choose a member...</option>
+              {members.map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.userName} ({member.pointsEarned?.toLocaleString() || 0} points earned)
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
-
-        <form id="award-points-form" onSubmit={handleSubmit} className="space-y-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <LoadingSpinner size="lg" />
-              <span className="ml-2 text-gray-600">Loading tasks...</span>
+        ) : (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h4 className="font-medium text-gray-900 mb-2">Member Information</h4>
+            <div className="text-sm text-gray-600 space-y-1">
+              <p><span className="font-medium">Name:</span> {selectedMember.userName}</p>
+              <p><span className="font-medium">Email:</span> {selectedMember.userEmail}</p>
+              <p><span className="font-medium">Current Points Earned:</span> {selectedMember.pointsEarned?.toLocaleString() || 0}</p>
             </div>
-          ) : (
-            <>
+            {!member && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSelectedMember(null)}
+                className="mt-2"
+              >
+                Change Member
+              </Button>
+            )}
+          </div>
+        )}
+
+        {selectedMember && (
+          <form id="award-points-form" onSubmit={handleSubmit} className="space-y-4">
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <LoadingSpinner size="lg" />
+                <span className="ml-2 text-gray-600">Loading tasks...</span>
+              </div>
+            ) : (
+              <>
               <div>
                 <label className="flex items-center space-x-2 mb-3">
                   <input
@@ -240,23 +305,24 @@ const AwardPointsModal: React.FC<AwardPointsModalProps> = ({
                 )}
               </div>
 
-              {(selectedTaskId || (useCustomPoints && customPoints)) && (
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-green-900 mb-2">Summary</h4>
-                  <p className="text-sm text-green-800">
-                    <span className="font-medium">{member.userName}</span> will receive{' '}
-                    <span className="font-bold">{getPointsToAward()} points</span>
-                    {!useCustomPoints && selectedTaskId ? (
-                      <span> for completing "{getSelectedTask()?.title}"</span>
-                    ) : (
-                      <span> as a custom award</span>
-                    )}
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-        </form>
+                {(selectedTaskId || (useCustomPoints && customPoints)) && (
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-green-900 mb-2">Summary</h4>
+                    <p className="text-sm text-green-800">
+                      <span className="font-medium">{selectedMember.userName}</span> will receive{' '}
+                      <span className="font-bold">{getPointsToAward()} points</span>
+                      {!useCustomPoints && selectedTaskId ? (
+                        <span> for completing "{getSelectedTask()?.title}"</span>
+                      ) : (
+                        <span> as a custom award</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </form>
+        )}
       </div>
     </Modal>
   )

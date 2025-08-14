@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Group } from '@/types'
 import { 
-  getPendingJoinRequests,
   getGroupInvitations
 } from '@/lib/groups'
 import { getGroupTaskCompletions } from '@/lib/tasks'
@@ -10,7 +9,7 @@ export interface PendingItem {
   type: 'admin' | 'user'
   title: string
   description: string
-  actionType: 'join-requests' | 'task-applications' | 'group-invitation'
+  actionType: 'task-applications' | 'group-invitation'
   groupName?: string
   group?: Group
   createdAt: Date
@@ -30,26 +29,6 @@ export function useUserPendingItems(userId?: string, groups: Group[] = []) {
       // Admin pending items (for groups user is admin of)
       for (const group of adminGroups) {
         try {
-          // Check for pending join requests
-          const joinRequests = await getPendingJoinRequests(userId)
-          const groupJoinRequests = joinRequests.filter(req => req.groupId === group.id && req.status === 'pending')
-          
-          if (groupJoinRequests.length > 0) {
-            pendingItems.push({
-              type: 'admin',
-              title: `${groupJoinRequests.length} Join Request${groupJoinRequests.length > 1 ? 's' : ''}`,
-              description: `New members want to join ${group.name}`,
-              actionType: 'join-requests',
-              groupName: group.name,
-              group,
-              createdAt: new Date(Math.max(...groupJoinRequests.map(req => {
-                const date = req.requestedAt instanceof Date ? req.requestedAt : req.requestedAt.toDate()
-                return date.getTime()
-              }))),
-              count: groupJoinRequests.length
-            })
-          }
-
           // Check for pending task applications
           const taskApplications = await getGroupTaskCompletions(group.id)
           const pendingApplications = taskApplications.filter(app => app.status === 'pending')

@@ -20,9 +20,6 @@ export type ActivityType =
   | 'group_invitation_sent'
   | 'group_invitation_received'
   | 'group_invitation_accepted'
-  | 'join_request_submitted'
-  | 'join_request_approved'
-  | 'join_request_rejected'
   | 'task_created'
   | 'task_completed'
   | 'task_application_submitted'
@@ -186,26 +183,6 @@ export const Activities = {
     relatedUserName: adminName,
   }),
 
-  joinRequestSubmitted: (userId: string, groupId: string, groupName: string): ActivityData => ({
-    userId,
-    type: 'join_request_submitted',
-    title: 'Submitted join request',
-    description: `Requested to join the group "${groupName}"`,
-    icon: '🙋',
-    groupId,
-    groupName,
-  }),
-
-  joinRequestApproved: (userId: string, groupId: string, groupName: string, adminName: string): ActivityData => ({
-    userId,
-    type: 'join_request_approved',
-    title: 'Join request approved',
-    description: `${adminName} approved your request to join "${groupName}"`,
-    icon: '✅',
-    groupId,
-    groupName,
-    relatedUserName: adminName,
-  }),
 
   taskCreated: (userId: string, groupId: string, groupName: string, taskId: string, taskTitle: string): ActivityData => ({
     userId,
@@ -303,9 +280,6 @@ export const getActivityDisplay = (activity: { type: ActivityType }) => {
     group_invitation_sent: { icon: '📧', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     group_invitation_received: { icon: '📩', color: 'text-indigo-600', bgColor: 'bg-indigo-50' },
     group_invitation_accepted: { icon: '✅', color: 'text-green-600', bgColor: 'bg-green-50' },
-    join_request_submitted: { icon: '🙋', color: 'text-yellow-600', bgColor: 'bg-yellow-50' },
-    join_request_approved: { icon: '✅', color: 'text-green-600', bgColor: 'bg-green-50' },
-    join_request_rejected: { icon: '❌', color: 'text-red-600', bgColor: 'bg-red-50' },
     task_created: { icon: '📝', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     task_completed: { icon: '✅', color: 'text-green-600', bgColor: 'bg-green-50' },
     task_application_submitted: { icon: '📋', color: 'text-yellow-600', bgColor: 'bg-yellow-50' },

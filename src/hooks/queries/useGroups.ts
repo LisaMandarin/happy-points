@@ -4,18 +4,14 @@ import {
   getGroupMembers, 
   getGroupInvitations,
   getGroupInvitationCount,
-  getPendingJoinRequests,
   createGroup,
-  joinGroupByCode,
   sendGroupInvitations,
   acceptInvitation,
   cancelInvitation,
-  resendInvitation,
-  approveJoinRequest,
-  rejectJoinRequest
+  resendInvitation
 } from '@/lib/groups'
 import { awardPointsToMember } from '@/lib/tasks'
-import { Group, GroupMember, GroupInvitation, GroupJoinRequest, CreateGroupData } from '@/types'
+import { Group, GroupMember, GroupInvitation, CreateGroupData } from '@/types'
 import { useAuthStore } from '@/stores/authStore'
 
 // Query Keys
@@ -28,7 +24,6 @@ export const groupKeys = {
   members: (groupId: string) => [...groupKeys.detail(groupId), 'members'] as const,
   invitations: (groupId: string) => [...groupKeys.detail(groupId), 'invitations'] as const,
   invitationCount: (groupId: string) => [...groupKeys.detail(groupId), 'invitationCount'] as const,
-  joinRequests: (groupId: string) => [...groupKeys.detail(groupId), 'joinRequests'] as const,
 }
 
 // Groups Queries
@@ -64,13 +59,6 @@ export const useGroupInvitationCount = (groupId?: string) => {
   })
 }
 
-export const usePendingJoinRequests = (groupId?: string) => {
-  return useQuery({
-    queryKey: groupKeys.joinRequests(groupId || ''),
-    queryFn: () => getPendingJoinRequests(groupId!),
-    enabled: !!groupId,
-  })
-}
 
 // Group Mutations
 export const useCreateGroup = () => {
@@ -86,17 +74,6 @@ export const useCreateGroup = () => {
   })
 }
 
-export const useJoinGroup = () => {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: ({ userId, userProfile, groupCode }: { userId: string; userProfile: any; groupCode: string }) =>
-      joinGroupByCode(userId, userProfile.name, userProfile.email, groupCode),
-    onSuccess: (_, { userId }) => {
-      queryClient.invalidateQueries({ queryKey: groupKeys.list(userId) })
-    },
-  })
-}
 
 export const useInviteUsers = () => {
   const queryClient = useQueryClient()
@@ -162,36 +139,6 @@ export const useResendInvitation = () => {
   })
 }
 
-export const useApproveJoinRequest = () => {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: ({ requestId, adminId, adminName }: { 
-      requestId: string; 
-      adminId: string;
-      adminName: string;
-    }) => approveJoinRequest(requestId, adminId, adminName),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['groups'] })
-    },
-  })
-}
-
-export const useRejectJoinRequest = () => {
-  const queryClient = useQueryClient()
-  
-  return useMutation({
-    mutationFn: ({ requestId, adminId, adminName, reason }: { 
-      requestId: string;
-      adminId: string;
-      adminName: string;
-      reason?: string;
-    }) => rejectJoinRequest(requestId, adminId, adminName, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['groups'] })
-    },
-  })
-}
 
 export const useAwardPoints = () => {
   const queryClient = useQueryClient()
