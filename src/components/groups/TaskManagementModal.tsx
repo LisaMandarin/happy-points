@@ -2,18 +2,20 @@
 
 import React, { useState } from 'react'
 import { Modal, Button, Tabs } from 'antd'
-import { Group, UserProfile } from '@/types'
+import { Group, UserProfile, GroupInvitation, InviteUsersFormData } from '@/types'
 import CreateTaskModal from '../tasks/CreateTaskModal'
 import ManageTasksModal from '../tasks/ManageTasksModal'
 import TaskApplicationsModal from '../tasks/TaskApplicationsModal'
 import ViewTasksModal from '../tasks/ViewTasksModal'
 import { getGroupTaskCompletions, approveTaskCompletion, rejectTaskCompletion, getTask, getGroupTasks, deleteGroupTask, updateGroupTask } from '@/lib/tasks'
-import { formatDate, formatPoints } from '@/lib/utils'
+import { formatDate, formatPoints, validateEmail, generateInvitationLink } from '@/lib/utils'
 import { getApplicationStatusBadge, getTaskStatusBadge } from '@/lib/utils/statusBadges'
 import { useModalData } from '@/hooks/useModalData'
 import { useApproveReject } from '@/hooks/useApproveReject'
+import { useForm } from '@/hooks/useForm'
 import { TaskCompletion, GroupTask } from '@/types'
-import { LoadingSpinner, Alert, Badge } from '@/components/ui'
+import { LoadingSpinner, Alert, Badge, Input } from '@/components/ui'
+import { getUserByEmail } from '@/lib/firestore'
 
 interface TaskManagementModalProps {
   isOpen: boolean
@@ -25,6 +27,7 @@ interface TaskManagementModalProps {
   onUpdateTask: (taskId: string, taskData: { title: string; description: string; points: number }) => Promise<void>
   onApplicationProcessed: () => void
   onTaskClaimed: () => void
+  onInviteUsers?: (emails: string[]) => Promise<GroupInvitation[]>
   refreshTrigger: number
 }
 
@@ -38,6 +41,7 @@ const TaskManagementModal: React.FC<TaskManagementModalProps> = ({
   onUpdateTask,
   onApplicationProcessed,
   onTaskClaimed,
+  onInviteUsers,
   refreshTrigger
 }) => {
   const isAdmin = currentUser?.id === group.adminId
@@ -128,6 +132,71 @@ const TaskManagementModal: React.FC<TaskManagementModalProps> = ({
     errorMessage: 'Failed to load tasks'
   })
 
+  // Member tasks data loading (always call hooks at top level)
+  const loadMemberTasks = async (): Promise<GroupTask[]> => {
+    if (isAdmin) return []
+    const tasks = await getGroupTasks(group.id)
+    return tasks.filter(task => task.isActive)
+  }
+
+  const { data: memberTasks, loading: loadingMemberTasks, error: memberTasksError } = useModalData<GroupTask[]>({
+    loadDataFn: loadMemberTasks,
+    dependencies: [isOpen, group.id, activeTab],
+    errorMessage: 'Failed to load available tasks'
+  })
+
+  const loadMemberCompletions = async (): Promise<TaskCompletion[]> => {
+    if (isAdmin || !currentUser?.id) return []
+    const completions = await getGroupTaskCompletions(group.id)
+    return completions.filter(completion => completion.userId === currentUser.id)
+  }
+
+  const { data: memberCompletions, loading: loadingMemberCompletions, error: memberCompletionsError, reload: reloadMemberCompletions } = useModalData<TaskCompletion[]>({
+    loadDataFn: loadMemberCompletions,
+    dependencies: [isOpen, group.id, currentUser?.id, activeTab],
+    errorMessage: 'Failed to load task completions'
+  })
+
+  const [claimingTaskId, setClaimingTaskId] = useState<string | null>(null)
+  const [claimError, setClaimError] = useState<string | null>(null)
+  const [claimSuccess, setClaimSuccess] = useState<string | null>(null)
+  const [showFullHistory, setShowFullHistory] = useState(false)
+  
+  // Invitation state
+  const [invitations, setInvitations] = useState<GroupInvitation[]>([])
+  const [showInvitationResults, setShowInvitationResults] = useState(false)
+  const [emailAccountStatus, setEmailAccountStatus] = useState<Record<string, boolean>>({})
+
+  const handleClaimTask = async (task: GroupTask) => {
+    if (!currentUser) return
+    
+    try {
+      setClaimingTaskId(task.id)
+      setClaimError(null)
+      
+      const { completeTask } = await import('@/lib/tasks')
+      await completeTask(task.id, currentUser.id, currentUser.name)
+      
+      setClaimSuccess(`Successfully claimed "${task.title}" for ${task.points} points!`)
+      onTaskClaimed()
+      await reloadMemberCompletions()
+      
+      setTimeout(() => setClaimSuccess(null), 3000)
+    } catch (error) {
+      console.error('Error claiming task:', error)
+      setClaimError(error instanceof Error ? error.message : 'Failed to claim task')
+      setTimeout(() => setClaimError(null), 3000)
+    } finally {
+      setClaimingTaskId(null)
+    }
+  }
+
+  const hasPendingCompletion = (taskId: string) => {
+    return memberCompletions?.some(completion => 
+      completion.taskId === taskId && completion.status === 'pending'
+    )
+  }
+
   const toggleTaskExpanded = (taskId: string) => {
     setExpandedTasks(prev => {
       const newSet = new Set(prev)
@@ -215,6 +284,117 @@ const TaskManagementModal: React.FC<TaskManagementModalProps> = ({
     setShowViewTasksModal(false)
     setShowProcessedApplicationsModal(false)
     setShowEditTaskModal(false)
+    setShowFullHistory(false) // Reset to show pending only when closing
+    // Reset invitation state
+    setShowInvitationResults(false)
+    resetInviteForm()
+    setEmailAccountStatus({})
+    setInvitations([])
+  }
+
+  const handleTabChange = (tabKey: string) => {
+    setActiveTab(tabKey)
+    setShowFullHistory(false) // Reset to pending only when switching tabs
+    setShowInvitationResults(false) // Reset invitation results when switching tabs
+  }
+
+  // Invitation form setup
+  const {
+    values: inviteValues,
+    errors: inviteErrors,
+    isSubmitting: isInviteSubmitting,
+    handleChange: handleInviteChange,
+    handleSubmit: handleInviteSubmit,
+    resetForm: resetInviteForm,
+    setFieldError: setInviteFieldError,
+  } = useForm<InviteUsersFormData>({
+    initialValues: {
+      emails: '',
+    },
+    validate: (values) => {
+      const errors: { [key: string]: string } = {}
+      
+      if (!values.emails.trim()) {
+        errors.emails = 'Please enter at least one email address'
+        return errors
+      }
+
+      const emailList = values.emails
+        .split(/[,\n]/)
+        .map(email => email.trim())
+        .filter(email => email.length > 0)
+
+      if (emailList.length === 0) {
+        errors.emails = 'Please enter at least one email address'
+        return errors
+      }
+
+      const invalidEmails = emailList.filter(email => !validateEmail(email))
+      if (invalidEmails.length > 0) {
+        errors.emails = `Invalid email addresses: ${invalidEmails.join(', ')}`
+      }
+
+      // Check if admin is trying to invite themselves
+      if (currentUser?.email) {
+        const adminEmail = emailList.find(email => email.toLowerCase() === currentUser.email!.toLowerCase())
+        if (adminEmail) {
+          errors.emails = 'You cannot invite yourself to the group'
+        }
+      }
+
+      if (emailList.length > 10) {
+        errors.emails = 'Maximum 10 email addresses allowed'
+      }
+
+      return errors
+    },
+    onSubmit: async (values) => {
+      if (!onInviteUsers) {
+        setInviteFieldError('general', 'Invite function not available')
+        return
+      }
+
+      try {
+        const emailList = values.emails
+          .split(/[,\n]/)
+          .map(email => email.trim().toLowerCase())
+          .filter((email, index, arr) => email.length > 0 && arr.indexOf(email) === index) // Remove duplicates
+
+        const result = await onInviteUsers(emailList)
+        setInvitations(result)
+        setShowInvitationResults(true)
+        resetInviteForm()
+      } catch (error) {
+        setInviteFieldError('general', error instanceof Error ? error.message : 'Failed to send invitations')
+      }
+    },
+  })
+
+  const checkEmailAccounts = async (emails: string[]) => {
+    const status: Record<string, boolean> = {}
+    
+    for (const email of emails) {
+      const normalizedEmail = email.trim().toLowerCase()
+      try {
+        const user = await getUserByEmail(normalizedEmail)
+        status[normalizedEmail] = !!user
+      } catch (error) {
+        console.error(`Error checking account for ${normalizedEmail}:`, error)
+        status[normalizedEmail] = false
+      }
+    }
+    
+    setEmailAccountStatus(status)
+  }
+
+  const copyInvitationLink = async (invitationCode: string) => {
+    const link = generateInvitationLink(invitationCode)
+    try {
+      await navigator.clipboard.writeText(link)
+      // You could add a toast notification here
+    } catch (error) {
+      console.error('Failed to copy link:', error)
+    }
   }
 
   const tabItems = []
@@ -486,6 +666,164 @@ const TaskManagementModal: React.FC<TaskManagementModalProps> = ({
             )}
           </div>
         )
+      },
+      {
+        key: 'invite-members',
+        label: '📧 Invite New Members',
+        children: showInvitationResults ? (
+          <div className="space-y-4">
+            <Alert variant="success">
+              {invitations.length} invitation{invitations.length > 1 ? 's' : ''} sent successfully!
+            </Alert>
+
+            <p className="text-sm text-gray-600">
+              Share these invitation links with the invited users:
+            </p>
+
+            <div className="space-y-3 max-h-60 overflow-y-auto">
+              {invitations.map((invitation) => (
+                <div key={invitation.id} className="border rounded-lg p-3 bg-gray-50">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <p className="font-medium text-sm text-gray-900">
+                          {invitation.inviteeEmail}
+                        </p>
+                        {(invitation as any).hasAccount ? (
+                          <Badge variant="success" size="sm">
+                            ✓ Has Account
+                          </Badge>
+                        ) : (
+                          <Badge variant="warning" size="sm">
+                            ⚠ No Account
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1 font-mono break-all">
+                        {generateInvitationLink(invitation.invitationCode)}
+                      </p>
+                      {(invitation as any).hasAccount && (
+                        <p className="text-xs text-green-600 mt-1">
+                          📧 User has been notified in-app
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      size="small"
+                      type="default"
+                      onClick={() => copyInvitationLink(invitation.invitationCode)}
+                    >
+                      Copy Link
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="text-sm font-medium text-blue-900 mb-2">
+                How it works:
+              </h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Invitations expire in 7 days</li>
+                <li>• Users must have an account to accept invitations</li>
+                <li>• They can click the link or use the invitation code</li>
+              </ul>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+              <Button onClick={() => setShowInvitationResults(false)}>
+                Send More Invitations
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {inviteErrors.general && (
+              <Alert variant="error">
+                {inviteErrors.general}
+              </Alert>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email Addresses *
+              </label>
+              <textarea
+                value={inviteValues.emails}
+                onChange={(e) => {
+                  handleInviteChange('emails')(e as any)
+                  // Check accounts when user pauses typing
+                  const emails = e.target.value
+                    .split(/[,\n]/)
+                    .map(email => email.trim())
+                    .filter(email => email.length > 0 && validateEmail(email))
+                  
+                  if (emails.length > 0) {
+                    const timeoutId = setTimeout(() => {
+                      checkEmailAccounts(emails)
+                    }, 500)
+                    return () => clearTimeout(timeoutId)
+                  }
+                }}
+                className={`
+                  w-full px-3 py-2 border rounded-lg resize-none
+                  focus:outline-none focus:ring-2 focus:border-transparent
+                  ${inviteErrors.emails ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'}
+                `}
+                rows={6}
+                placeholder="Enter email addresses (one per line or comma-separated)&#10;example@email.com&#10;another@email.com"
+              />
+              {inviteErrors.emails && (
+                <p className="mt-1 text-sm text-red-600">{inviteErrors.emails}</p>
+              )}
+              
+              {/* Email Status Preview */}
+              {inviteValues.emails && Object.keys(emailAccountStatus).length > 0 && (
+                <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                  <h4 className="text-xs font-medium text-gray-700 mb-2">Account Status Preview:</h4>
+                  <div className="space-y-1">
+                    {Object.entries(emailAccountStatus).map(([email, hasAccount]) => (
+                      <div key={email} className="flex items-center justify-between text-xs">
+                        <span className="text-gray-600">{email}</span>
+                        {hasAccount ? (
+                          <Badge variant="success" size="sm">✓ Has Account</Badge>
+                        ) : (
+                          <Badge variant="warning" size="sm">⚠ No Account</Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <p className="mt-1 text-sm text-gray-500">
+                Enter up to 10 email addresses, separated by commas or new lines
+              </p>
+            </div>
+
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <h4 className="text-sm font-medium text-yellow-900 mb-2">
+                📧 Note about invitations:
+              </h4>
+              <p className="text-sm text-yellow-800">
+                Invitations will be sent as shareable links. Make sure the recipients have 
+                accounts on Happy Points to accept the invitations.
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+              <Button
+                type="primary"
+                loading={isInviteSubmitting}
+                onClick={handleInviteSubmit}
+                disabled={!onInviteUsers}
+              >
+                Send Invitations
+              </Button>
+            </div>
+          </div>
+        )
       }
     )
   } else {
@@ -495,15 +833,114 @@ const TaskManagementModal: React.FC<TaskManagementModalProps> = ({
         label: '📋 Available Tasks',
         children: (
           <div className="space-y-4">
-            <Button type="primary" onClick={() => handleTabAction('view')}>
-              📋 View Available Tasks
-            </Button>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h4 className="font-medium text-green-900 mb-2">How to Earn Points</h4>
-              <p className="text-sm text-green-800">
-                Browse available tasks and apply to complete them. Once approved by the admin, you'll earn points!
-              </p>
-            </div>
+            {(memberTasksError || claimError) && (
+              <Alert variant="error">
+                {memberTasksError || claimError}
+              </Alert>
+            )}
+            
+            {claimSuccess && (
+              <Alert variant="success">
+                {claimSuccess}
+              </Alert>
+            )}
+            
+            {loadingMemberTasks ? (
+              <div className="flex items-center justify-center py-8">
+                <LoadingSpinner size="lg" />
+                <span className="ml-2 text-gray-600">Loading tasks...</span>
+              </div>
+            ) : !memberTasks || memberTasks.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-gray-400 mb-4">
+                  <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                </div>
+                <p className="text-gray-500 mb-2">No active tasks available</p>
+                <p className="text-sm text-gray-400">
+                  Check back later for new tasks from your group admin
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {memberTasks.map((task) => {
+                  const pending = hasPendingCompletion(task.id)
+                  
+                  return (
+                    <div 
+                      key={task.id} 
+                      className="border rounded-lg transition-all duration-200 bg-white border-gray-200 hover:border-gray-300"
+                    >
+                      {/* Task Header - Always Visible */}
+                      <div className="p-4">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <h4 
+                                className="font-medium cursor-pointer hover:text-blue-600 transition-colors text-gray-900"
+                                onClick={() => toggleTaskExpanded(task.id)}
+                              >
+                                {task.title}
+                                <span className="ml-2 text-gray-400">
+                                  {expandedTasks.has(task.id) ? '▼' : '▶'}
+                                </span>
+                              </h4>
+                              {pending && (
+                                <Badge variant="warning" size="sm">
+                                  Pending
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Claim Button */}
+                          <div className="ml-4">
+                            <Button
+                              onClick={() => handleClaimTask(task)}
+                              disabled={!!claimingTaskId}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 text-sm"
+                            >
+                              {claimingTaskId === task.id ? (
+                                <LoadingSpinner size="sm" />
+                              ) : pending ? (
+                                'Claim Again'
+                              ) : (
+                                'Claim Task'
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Collapsible Content */}
+                      {expandedTasks.has(task.id) && (
+                        <div className="px-4 pb-4 border-t border-gray-100 bg-gray-50">
+                          <div className="pt-3 space-y-3">
+                            <div>
+                              <h6 className="text-sm font-medium text-gray-700 mb-1">Description</h6>
+                              <p className="text-sm text-gray-600">{task.description}</p>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-gray-500">
+                              <div>
+                                <span className="font-medium">Points:</span> {formatPoints(task.points)}
+                              </div>
+                              <div>
+                                <span className="font-medium">Creator:</span> {task.createdByName}
+                              </div>
+                              <div>
+                                <span className="font-medium">Created:</span> {formatDate(task.createdAt)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )
       },
@@ -512,15 +949,155 @@ const TaskManagementModal: React.FC<TaskManagementModalProps> = ({
         label: '📊 My Applications',
         children: (
           <div className="space-y-4">
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <h4 className="font-medium text-yellow-900 mb-2">Application Status</h4>
-              <p className="text-sm text-yellow-800">
-                Track the status of your task completion applications. See which applications are pending, approved, or rejected.
-              </p>
-              <div className="mt-3">
-                <p className="text-sm text-yellow-700">Coming Soon: View your application history and status details.</p>
+            {memberCompletionsError && (
+              <Alert variant="error">
+                {memberCompletionsError}
+              </Alert>
+            )}
+            
+            {loadingMemberCompletions ? (
+              <div className="flex items-center justify-center py-8">
+                <LoadingSpinner size="lg" />
+                <span className="ml-2 text-gray-600">Loading applications...</span>
               </div>
-            </div>
+            ) : !memberCompletions || memberCompletions.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-gray-400 mb-4">
+                  <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <p className="text-gray-500 mb-2">No applications yet</p>
+                <p className="text-sm text-gray-400">
+                  Complete tasks from the Available Tasks tab to see your applications here
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Points Summary */}
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <h4 className="text-lg font-medium text-blue-900 mb-3">
+                    Points Summary
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {formatPoints(memberCompletions.filter(c => c.status === 'approved').reduce((sum, c) => sum + c.pointsAwarded, 0))}
+                      </div>
+                      <div className="text-sm text-gray-600">Points Earned</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-yellow-600">
+                        {formatPoints(memberCompletions.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.pointsAwarded, 0))}
+                      </div>
+                      <div className="text-sm text-gray-600">Points Pending</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-gray-600">
+                        {memberCompletions.length}
+                      </div>
+                      <div className="text-sm text-gray-600">Total Applications</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Applications Section */}
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="text-lg font-medium text-gray-900">
+                      {showFullHistory 
+                        ? `Application History (${memberCompletions.length})`
+                        : `Pending Applications (${memberCompletions.filter(c => c.status === 'pending').length})`
+                      }
+                    </h4>
+                    {memberCompletions.length > 0 && (
+                      <button
+                        onClick={() => setShowFullHistory(!showFullHistory)}
+                        className="text-blue-600 hover:text-blue-800 text-sm underline"
+                      >
+                        {showFullHistory ? 'Show Pending Only' : 'View Full History'}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {(() => {
+                    const displayCompletions = showFullHistory 
+                      ? memberCompletions 
+                      : memberCompletions.filter(c => c.status === 'pending')
+                    
+                    if (displayCompletions.length === 0) {
+                      return (
+                        <div className="text-center py-8">
+                          <div className="text-gray-400 mb-2">
+                            <svg className="mx-auto h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <p className="text-gray-500 text-sm">
+                            {showFullHistory 
+                              ? 'No applications found'
+                              : 'No pending applications'
+                            }
+                          </p>
+                        </div>
+                      )
+                    }
+                    
+                    return (
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {displayCompletions.map((completion) => {
+                          const task = memberTasks?.find(t => t.id === completion.taskId)
+                          return (
+                            <div 
+                              key={completion.id}
+                              className={`p-3 rounded-lg border ${
+                                completion.status === 'approved' 
+                                  ? 'bg-green-50 border-green-200'
+                                  : completion.status === 'rejected'
+                                  ? 'bg-red-50 border-red-200' 
+                                  : 'bg-yellow-50 border-yellow-200'
+                              }`}
+                            >
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <div className="flex items-center space-x-2 mb-1">
+                                    <h5 className="font-medium text-gray-900">
+                                      {task?.title || 'Unknown Task'}
+                                    </h5>
+                                    <Badge 
+                                      variant={
+                                        completion.status === 'approved' 
+                                          ? 'success' 
+                                          : completion.status === 'rejected' 
+                                          ? 'error' 
+                                          : 'warning'
+                                      } 
+                                      size="sm"
+                                    >
+                                      {completion.status.charAt(0).toUpperCase() + completion.status.slice(1)}
+                                    </Badge>
+                                  </div>
+                                  <div className="text-sm text-gray-600 space-y-1">
+                                    <p><span className="font-medium">Points:</span> {formatPoints(completion.pointsAwarded)}</p>
+                                    <p><span className="font-medium">Applied:</span> {formatDate(completion.completedAt)}</p>
+                                    {completion.approvedAt && (
+                                      <p><span className="font-medium">Processed:</span> {formatDate(completion.approvedAt)}</p>
+                                    )}
+                                    {completion.rejectionReason && (
+                                      <p><span className="font-medium">Reason:</span> {completion.rejectionReason}</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()
+                }</div>
+              </>
+            )}
           </div>
         )
       }
@@ -542,7 +1119,7 @@ const TaskManagementModal: React.FC<TaskManagementModalProps> = ({
       >
         <Tabs
           activeKey={activeTab}
-          onChange={setActiveTab}
+          onChange={handleTabChange}
           items={tabItems}
         />
       </Modal>

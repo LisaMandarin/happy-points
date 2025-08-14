@@ -99,6 +99,7 @@ export interface Group {
   isPrivate: boolean
   createdAt: Date | Timestamp
   updatedAt: Date | Timestamp
+  isUserActive?: boolean  // Added to track if current user is active in this group
 }
 
 export interface GroupMember {
@@ -112,6 +113,10 @@ export interface GroupMember {
   pointsEarned: number
   pointsRedeemed: number
   isActive: boolean
+  deactivatedAt?: Date | Timestamp
+  deactivatedBy?: string
+  reactivatedAt?: Date | Timestamp
+  reactivatedBy?: string
 }
 
 export interface GroupInvitation {

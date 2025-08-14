@@ -528,6 +528,7 @@ export default function Dashboard() {
             onUpdateTask={handleUpdateTask}
             onApplicationProcessed={handleApplicationProcessed}
             onTaskClaimed={handleTaskClaimed}
+            onInviteUsers={handleInviteUsers}
             refreshTrigger={taskRefreshTrigger}
           />
           

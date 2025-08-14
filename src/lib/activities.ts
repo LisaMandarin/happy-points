@@ -30,6 +30,7 @@ export type ActivityType =
   | 'task_application_rejected'
   | 'member_added'
   | 'member_removed'
+  | 'member_activated'
   | 'profile_updated'
 
 export interface ActivityData {
@@ -269,9 +270,20 @@ export const Activities = {
   memberRemoved: (adminId: string, groupId: string, groupName: string, memberName: string): ActivityData => ({
     userId: adminId,
     type: 'member_removed',
-    title: 'Member removed',
-    description: `Removed ${memberName} from "${groupName}"`,
-    icon: '👤',
+    title: 'Member deactivated',
+    description: `Deactivated ${memberName} from "${groupName}"`,
+    icon: '⏸️',
+    groupId,
+    groupName,
+    relatedUserName: memberName,
+  }),
+
+  memberActivated: (adminId: string, groupId: string, groupName: string, memberName: string): ActivityData => ({
+    userId: adminId,
+    type: 'member_activated',
+    title: 'Member activated',
+    description: `Activated ${memberName} in "${groupName}"`,
+    icon: '▶️',
     groupId,
     groupName,
     relatedUserName: memberName,
@@ -300,7 +312,8 @@ export const getActivityDisplay = (activity: { type: ActivityType }) => {
     task_application_approved: { icon: '🎉', color: 'text-green-600', bgColor: 'bg-green-50' },
     task_application_rejected: { icon: '❌', color: 'text-red-600', bgColor: 'bg-red-50' },
     member_added: { icon: '👤', color: 'text-green-600', bgColor: 'bg-green-50' },
-    member_removed: { icon: '👤', color: 'text-red-600', bgColor: 'bg-red-50' },
+    member_removed: { icon: '⏸️', color: 'text-orange-600', bgColor: 'bg-orange-50' },
+    member_activated: { icon: '▶️', color: 'text-green-600', bgColor: 'bg-green-50' },
     profile_updated: { icon: '⚙️', color: 'text-gray-600', bgColor: 'bg-gray-50' },
   }
 

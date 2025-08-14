@@ -153,21 +153,21 @@ export const getUserGroups = async (userId: string): Promise<Group[]> => {
     const q = query(membersRef, where('userId', '==', userId))
     const memberSnapshot = await getDocs(q)
     
-    const groupIds = memberSnapshot.docs.map(doc => doc.data().groupId)
+    // Include all groups, but add membership info to identify deactivated ones
+    const groupsWithMembership: Array<Group & { isUserActive?: boolean }> = []
     
-    if (groupIds.length === 0) {
-      return []
-    }
-
-    const groups: Group[] = []
-    for (const groupId of groupIds) {
-      const group = await getGroup(groupId)
+    for (const doc of memberSnapshot.docs) {
+      const memberData = doc.data()
+      const group = await getGroup(memberData.groupId)
       if (group) {
-        groups.push(group)
+        groupsWithMembership.push({
+          ...group,
+          isUserActive: memberData.isActive !== false
+        })
       }
     }
     
-    return groups.sort((a, b) => {
+    return groupsWithMembership.sort((a, b) => {
       const aTime = a.updatedAt instanceof Date ? a.updatedAt.getTime() : a.updatedAt.toDate().getTime()
       const bTime = b.updatedAt instanceof Date ? b.updatedAt.getTime() : b.updatedAt.toDate().getTime()
       return bTime - aTime
@@ -272,11 +272,20 @@ export const getGroupMembers = async (groupId: string): Promise<GroupMember[]> =
     )
     const querySnapshot = await getDocs(q)
     
-    return querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      isActive: doc.data().isActive !== false // Default to true for existing members
-    })) as GroupMember[]
+    const members = querySnapshot.docs.map(doc => {
+      const data = doc.data()
+      const member = {
+        id: doc.id,
+        ...data,
+        isActive: data.isActive !== false // Default to true for existing members
+      } as GroupMember
+      
+      console.log('🔧 Processing member:', member.userName, 'isActive from DB:', data.isActive, 'final isActive:', member.isActive)
+      return member
+    })
+    
+    console.log('🔧 Found', members.length, 'members for group', groupId)
+    return members
   } catch (error) {
     console.error('Error fetching group members:', error)
     return []
@@ -305,8 +314,11 @@ export const deactivateGroupMember = async (
   adminId: string
 ): Promise<void> => {
   try {
+    console.log('🔧 Starting deactivateGroupMember:', { groupId, memberUserId, adminId })
+    
     // Verify admin permissions
     const group = await getGroup(groupId)
+    console.log('🔧 Group found:', group ? 'Yes' : 'No', group?.adminId === adminId ? 'Admin match' : 'Admin mismatch')
     if (!group || group.adminId !== adminId) {
       throw new Error('Unauthorized: Only group admin can deactivate members')
     }
@@ -318,15 +330,17 @@ export const deactivateGroupMember = async (
 
     // Get the member record to deactivate
     const member = await getGroupMember(groupId, memberUserId)
+    console.log('🔧 Member found:', member ? 'Yes' : 'No', 'isActive:', member?.isActive)
     if (!member) {
       throw new Error('Member not found in the group')
     }
 
-    if (!member.isActive) {
+    if (member.isActive === false) {
       throw new Error('Member is already deactivated')
     }
 
     // Start a transaction to update group stats and deactivate member
+    console.log('🔧 Starting transaction for member deactivation')
     await runTransaction(db, async (transaction) => {
       // Get group reference for updating member count
       const groupRef = doc(db, COLLECTIONS.GROUPS, groupId)
@@ -334,6 +348,7 @@ export const deactivateGroupMember = async (
       // Get member reference for deactivation
       const memberRef = doc(db, COLLECTIONS.GROUP_MEMBERS, member.id)
       
+      console.log('🔧 Updating group member count and deactivating member')
       // Update group member count (subtract 1 for deactivated member)
       transaction.update(groupRef, {
         memberCount: increment(-1),
@@ -348,8 +363,11 @@ export const deactivateGroupMember = async (
       })
     })
 
+    console.log('🔧 Transaction completed, logging activity')
     // Log the activity
     await logActivity(Activities.memberRemoved(adminId, groupId, group.name, member.userName || 'Unknown User'))
+    
+    console.log('🔧 Member deactivation completed successfully')
 
   } catch (error) {
     console.error('Error deactivating group member:', error)
@@ -357,6 +375,79 @@ export const deactivateGroupMember = async (
       throw error
     }
     throw new Error('Failed to deactivate member from group')
+  }
+}
+
+/**
+ * Activate a member in a group (Admin only)
+ */
+export const activateGroupMember = async (
+  groupId: string,
+  memberUserId: string,
+  adminId: string
+): Promise<void> => {
+  try {
+    console.log('🔧 Starting activateGroupMember:', { groupId, memberUserId, adminId })
+    
+    // Verify admin permissions
+    const group = await getGroup(groupId)
+    console.log('🔧 Group found:', group ? 'Yes' : 'No', group?.adminId === adminId ? 'Admin match' : 'Admin mismatch')
+    if (!group || group.adminId !== adminId) {
+      throw new Error('Unauthorized: Only group admin can activate members')
+    }
+
+    // Get the member record to activate
+    const member = await getGroupMember(groupId, memberUserId)
+    console.log('🔧 Member found:', member ? 'Yes' : 'No', 'isActive:', member?.isActive)
+    if (!member) {
+      throw new Error('Member not found in the group')
+    }
+
+    if (member.isActive !== false) {
+      throw new Error('Member is already active')
+    }
+
+    // Check group capacity
+    if (group.memberCount >= group.maxMembers) {
+      throw new Error('Group is full - cannot activate member')
+    }
+
+    // Start a transaction to update group stats and activate member
+    console.log('🔧 Starting transaction for member activation')
+    await runTransaction(db, async (transaction) => {
+      // Get group reference for updating member count
+      const groupRef = doc(db, COLLECTIONS.GROUPS, groupId)
+      
+      // Get member reference for activation
+      const memberRef = doc(db, COLLECTIONS.GROUP_MEMBERS, member.id)
+      
+      console.log('🔧 Updating group member count and activating member')
+      // Update group member count (add 1 for activated member)
+      transaction.update(groupRef, {
+        memberCount: increment(1),
+        updatedAt: serverTimestamp()
+      })
+      
+      // Activate the member
+      transaction.update(memberRef, {
+        isActive: true,
+        reactivatedAt: serverTimestamp(),
+        reactivatedBy: adminId
+      })
+    })
+
+    console.log('🔧 Transaction completed, logging activity')
+    // Log the activity
+    await logActivity(Activities.memberActivated(adminId, groupId, group.name, member.userName || 'Unknown User'))
+    
+    console.log('🔧 Member activation completed successfully')
+
+  } catch (error) {
+    console.error('Error activating group member:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to activate member in group')
   }
 }
 
