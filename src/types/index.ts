@@ -32,7 +32,7 @@ export interface CreateUserProfileData {
 }
 
 // Points & Transactions Types
-export type TransactionType = 'earn' | 'redeem'
+export type TransactionType = 'earn' | 'redeem' | 'penalty'
 
 export interface PointsTransaction {
   id: string
@@ -48,6 +48,70 @@ export interface CreateTransactionData {
   type: TransactionType
   amount: number
   description: string
+}
+
+export interface GroupPenalty {
+  id: string
+  groupId: string
+  groupName: string
+  adminId: string
+  adminName: string
+  memberId: string
+  memberName: string
+  title: string
+  description: string
+  amount: number
+  createdAt: Date | Timestamp
+}
+
+export interface CreatePenaltyData {
+  groupId: string
+  groupName: string
+  adminId: string
+  adminName: string
+  memberId: string
+  memberName: string
+  title: string
+  description: string
+  amount: number
+}
+
+export interface GroupPenaltyType {
+  id: string
+  groupId: string
+  groupName: string
+  title: string
+  description: string
+  amount: number
+  isActive: boolean
+  createdAt: Date | Timestamp
+  createdBy: string
+  createdByName: string
+}
+
+export interface CreatePenaltyTypeData {
+  groupId: string
+  groupName: string
+  title: string
+  description: string
+  amount: number
+  createdBy: string
+  createdByName: string
+}
+
+export interface UpdatePenaltyTypeData {
+  isActive?: boolean
+  title?: string
+  description?: string
+  amount?: number
+}
+
+export interface PenaltyFormData {
+  memberId: string
+  title: string
+  description: string
+  amount: string
+  general?: string
 }
 
 // Form Types
@@ -167,6 +231,7 @@ export interface InviteUsersFormData {
 export const TRANSACTION_TYPES = {
   EARN: 'earn' as const,
   REDEEM: 'redeem' as const,
+  PENALTY: 'penalty' as const,
 } as const
 
 export const GROUP_ROLES = {

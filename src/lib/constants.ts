@@ -7,6 +7,8 @@ export const COLLECTIONS = {
   GROUP_INVITATIONS: 'groupInvitations',
   GROUP_TASKS: 'groupTasks',
   TASK_COMPLETIONS: 'taskCompletions',
+  GROUP_PENALTIES: 'groupPenalties',
+  GROUP_PENALTY_TYPES: 'groupPenaltyTypes',
   NOTIFICATIONS: 'notifications',
   ACTIVITIES: 'activities',
   TEST: 'test',
@@ -84,6 +86,9 @@ export const ERROR_MESSAGES = {
     INVALID_INVITATION: 'Invalid or expired invitation',
     INVITATION_EXPIRED: 'Invitation has expired',
     INVITATION_ALREADY_USED: 'Invitation has already been used',
+    PENALTY_FAILED: 'Failed to apply penalty',
+    INSUFFICIENT_POINTS_FOR_PENALTY: 'Member does not have enough points for this penalty',
+    CANNOT_PENALIZE_SELF: 'You cannot apply a penalty to yourself',
   },
   TASK: {
     CREATE_FAILED: 'Failed to create task',
@@ -106,6 +111,7 @@ export const SUCCESS_MESSAGES = {
   POINTS: {
     EARNED: (amount: number) => `You earned ${amount} points!`,
     REDEEMED: (amount: number) => `You redeemed ${amount} points!`,
+    PENALTY_APPLIED: (amount: number) => `Penalty applied: ${amount} points deducted`,
   },
   GROUP: {
     CREATED: 'Group created successfully!',
@@ -113,6 +119,7 @@ export const SUCCESS_MESSAGES = {
     INVITATION_ACCEPTED: 'Invitation accepted! Welcome to the group!',
     MEMBER_REMOVED: 'Member removed successfully',
     GROUP_DELETED: 'Group deleted successfully',
+    PENALTY_APPLIED: 'Penalty applied successfully',
   },
   TASK: {
     CREATED: 'Task created successfully!',

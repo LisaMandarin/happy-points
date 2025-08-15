@@ -7,7 +7,7 @@ import { signOut } from '@/lib/auth'
 
 // React Query hooks
 import { useUserTransactions } from '@/hooks/queries/useTransactions'
-import { useUserGroups, useCreateGroup, useInviteUsers, useAwardPoints } from '@/hooks/queries/useGroups'
+import { useUserGroups, useCreateGroup, useInviteUsers, useAwardPoints, usePenalizeMember } from '@/hooks/queries/useGroups'
 import { useUserNotifications } from '@/hooks/queries/useNotifications'
 import { useUserPendingItems } from '@/hooks/queries/usePendingItems'
 
@@ -27,6 +27,10 @@ import TaskApplicationsModal from '@/components/tasks/TaskApplicationsModal'
 import ViewTasksModal from '@/components/tasks/ViewTasksModal'
 import AwardPointsModal from '@/components/groups/AwardPointsModal'
 import QuickGrantPointsModal from '@/components/groups/QuickGrantPointsModal'
+import PenaltyModal from '@/components/groups/PenaltyModal'
+import PenaltyManagementModal from '@/components/groups/PenaltyManagementModal'
+import PenaltyApplicationModal from '@/components/groups/PenaltyApplicationModal'
+import QuickPenaltyApplicationModal from '@/components/groups/QuickPenaltyApplicationModal'
 import { Button, Alert } from 'antd'
 
 export default function Dashboard() {
@@ -43,6 +47,7 @@ export default function Dashboard() {
   const createGroupMutation = useCreateGroup()
   const inviteUsersMutation = useInviteUsers()
   const awardPointsMutation = useAwardPoints()
+  const penalizeMemberMutation = usePenalizeMember()
 
   // UI state
   const [showCreateGroupModal, setShowCreateGroupModal] = useState(false)
@@ -53,6 +58,10 @@ export default function Dashboard() {
   const [showAwardPointsModal, setShowAwardPointsModal] = useState(false)
   const [showEditTaskModal, setShowEditTaskModal] = useState(false)
   const [showQuickGrantPointsModal, setShowQuickGrantPointsModal] = useState(false)
+  const [showPenaltyModal, setShowPenaltyModal] = useState(false)
+  const [showPenaltyManagementModal, setShowPenaltyManagementModal] = useState(false)
+  const [showPenaltyApplicationModal, setShowPenaltyApplicationModal] = useState(false)
+  const [showQuickPenaltyApplicationModal, setShowQuickPenaltyApplicationModal] = useState(false)
   
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
   const [selectedTask, setSelectedTask] = useState<any>(null)
@@ -110,12 +119,30 @@ export default function Dashboard() {
       case 'award-points':
         setShowAwardPointsModal(true)
         break
+      case 'penalty-management':
+        setShowPenaltyManagementModal(true)
+        break
+      case 'apply-penalties':
+        setShowPenaltyApplicationModal(true)
+        break
+      case 'view-penalties':
+        setShowPenaltyManagementModal(true)
+        break
+      default:
+        console.warn('Unknown modal type:', modalType)
+        break
     }
   }
 
   const handleMemberClick = (member: any) => {
     setSelectedMember(member)
     setShowAwardPointsModal(true)
+  }
+
+  const handlePenaltyClick = (member: any) => {
+    setSelectedMember(member)
+    setSelectedGroup(selectedGroup) // Ensure group is set
+    setShowPenaltyModal(true)
   }
 
 
@@ -203,11 +230,92 @@ export default function Dashboard() {
     // Refresh user profile to update points if needed
   }
 
+  const handleApplyPenalty = async (memberId: string, penaltyTypeId: string, reason?: string) => {
+    if (!selectedGroup || !userProfile) {
+      throw new Error('Group or user profile not available')
+    }
+
+    // Get penalty type details and member details
+    const { getGroupPenaltyTypes } = await import('@/lib/firestore')
+    const { getGroupMembers } = await import('@/lib/groups')
+    const penaltyTypes = await getGroupPenaltyTypes(selectedGroup.id)
+    const members = await getGroupMembers(selectedGroup.id)
+    
+    const penaltyType = penaltyTypes.find(pt => pt.id === penaltyTypeId)
+    const member = members.find(m => m.userId === memberId)
+    
+    if (!penaltyType) {
+      throw new Error('Penalty type not found')
+    }
+    
+    if (!member) {
+      throw new Error('Member not found')
+    }
+
+    // Apply penalty using the existing penalty mutation
+    await penalizeMemberMutation.mutateAsync({
+      groupId: selectedGroup.id,
+      groupName: selectedGroup.name,
+      adminId: userProfile.id,
+      adminName: userProfile.name,
+      memberId,
+      memberName: member.userName,
+      title: penaltyType.title,
+      description: reason ? `${penaltyType.description}\n\nReason: ${reason}` : penaltyType.description,
+      amount: penaltyType.amount
+    })
+  }
+
+  const handleQuickApplyPenalty = async (memberId: string, penaltyTypeId: string, reason?: string, groupId?: string) => {
+    if (!groupId || !userProfile) {
+      throw new Error('Group ID or user profile not available')
+    }
+
+    // Get penalty type details and member details
+    const { getGroupPenaltyTypes } = await import('@/lib/firestore')
+    const { getGroupMembers } = await import('@/lib/groups')
+    const penaltyTypes = await getGroupPenaltyTypes(groupId)
+    const members = await getGroupMembers(groupId)
+    
+    const penaltyType = penaltyTypes.find(pt => pt.id === penaltyTypeId)
+    const member = members.find(m => m.userId === memberId)
+    const group = adminGroups.find(g => g.id === groupId)
+    
+    if (!penaltyType) {
+      throw new Error('Penalty type not found')
+    }
+    
+    if (!member) {
+      throw new Error('Member not found')
+    }
+
+    if (!group) {
+      throw new Error('Group not found in your admin groups')
+    }
+
+    // Apply penalty using the existing penalty mutation
+    await penalizeMemberMutation.mutateAsync({
+      groupId: group.id,
+      groupName: group.name,
+      adminId: userProfile.id,
+      adminName: userProfile.name,
+      memberId,
+      memberName: member.userName,
+      title: penaltyType.title,
+      description: reason ? `${penaltyType.description}\n\nReason: ${reason}` : penaltyType.description,
+      amount: penaltyType.amount
+    })
+  }
+
   const closeModals = () => {
     setShowMemberManagementModal(false)
     setShowTaskManagementModal(false)
     setShowEditTaskModal(false)
     setShowAwardPointsModal(false)
+    setShowPenaltyModal(false)
+    setShowPenaltyManagementModal(false)
+    setShowPenaltyApplicationModal(false)
+    setShowQuickPenaltyApplicationModal(false)
     setSelectedGroup(null)
     setSelectedTask(null)
     setSelectedMember(null)
@@ -333,13 +441,22 @@ export default function Dashboard() {
                       <>
                         {/* Grant Points button - only for groups where user is admin */}
                         {isAdminOfAnyGroup && (
-                          <Button 
-                            onClick={() => setShowQuickGrantPointsModal(true)}
-                            className="w-full relative"
-                            type="primary"
-                          >
-                            🎁 Award Points
-                          </Button>
+                          <>
+                            <Button 
+                              onClick={() => setShowQuickGrantPointsModal(true)}
+                              className="w-full relative"
+                              type="primary"
+                            >
+                              🎁 Award Points
+                            </Button>
+                            <Button 
+                              onClick={() => setShowQuickPenaltyApplicationModal(true)}
+                              className="w-full relative"
+                              danger
+                            >
+                              ⚠️ Apply Penalty
+                            </Button>
+                          </>
                         )}
                         
                         {/* Claim Points button - only for groups where user is member but not admin */}
@@ -359,7 +476,10 @@ export default function Dashboard() {
                         {/* Show helpful info about what each button does */}
                         <div className="text-xs text-gray-500 space-y-1">
                           {isAdminOfAnyGroup && (
-                            <p>• Award Points: Award points to members in groups you admin ({adminGroups.length} group{adminGroups.length !== 1 ? 's' : ''})</p>
+                            <>
+                              <p>• Award Points: Award points to members in groups you admin ({adminGroups.length} group{adminGroups.length !== 1 ? 's' : ''})</p>
+                              <p>• Apply Penalty: Deduct points from members for violations or infractions</p>
+                            </>
                           )}
                           {isMemberOfAnyGroup && (
                             <p>• Claim Points: Apply for tasks in groups where you're a member ({memberGroups.length} group{memberGroups.length !== 1 ? 's' : ''})</p>
@@ -410,6 +530,9 @@ export default function Dashboard() {
                         onMemberManagement={() => openGroupModal(group, 'member-management')}
                         onTaskManagement={() => openGroupModal(group, 'task-management')}
                         onAwardPoints={() => openGroupModal(group, 'award-points')}
+                        onPenaltyManagement={() => openGroupModal(group, 'penalty-management')}
+                        onApplyPenalties={() => openGroupModal(group, 'apply-penalties')}
+                        onViewPenalties={() => openGroupModal(group, 'view-penalties')}
                       />
                     ))}
                   </div>
@@ -440,9 +563,14 @@ export default function Dashboard() {
                               </p>
                             </div>
                             <div className={`text-sm font-medium ${
-                              transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
+                              transaction.type === 'earn' ? 'text-green-600' : 
+                              transaction.type === 'penalty' ? 'text-red-600' : 'text-orange-600'
                             }`}>
-                              {transaction.amount > 0 ? '+' : ''}{transaction.amount} points
+                              {transaction.type === 'earn' ? '+' : 
+                               transaction.type === 'penalty' ? '-' : '-'}{Math.abs(transaction.amount)} points
+                              {transaction.type === 'penalty' && (
+                                <span className="ml-1 text-xs text-red-500">(Penalty)</span>
+                              )}
                             </div>
                           </div>
                         </li>
@@ -501,6 +629,7 @@ export default function Dashboard() {
             currentUser={userProfile}
             onInviteUsers={handleInviteUsers}
             onMemberClick={handleMemberClick}
+            onPenaltyClick={handlePenaltyClick}
           />
           
           <TaskManagementModal
@@ -589,6 +718,109 @@ export default function Dashboard() {
         isOpen={showProfileModal}
         onClose={() => setShowProfileModal(false)}
       />
+
+      <PenaltyModal
+        isOpen={showPenaltyModal}
+        onClose={() => setShowPenaltyModal(false)}
+        adminGroups={selectedMember ? undefined : adminGroups} // Pass admin groups only if no specific member
+        groupId={selectedMember && selectedGroup ? selectedGroup.id : undefined} // Pass group if member selected
+        member={selectedMember} // Pass selected member if any
+        onApplyPenalty={async (memberId: string, title: string, description: string, amount: number, groupId?: string) => {
+          if (!userProfile?.id) {
+            throw new Error('User profile not available')
+          }
+
+          // Determine the group ID and validate
+          let targetGroupId: string
+          if (selectedMember && selectedGroup) {
+            targetGroupId = selectedGroup.id
+          } else if (groupId) {
+            targetGroupId = groupId
+          } else {
+            throw new Error('Group ID is required')
+          }
+
+          // Find the target group and member
+          const targetGroup = adminGroups.find(g => g.id === targetGroupId)
+          if (!targetGroup) {
+            throw new Error('Group not found in your admin groups')
+          }
+
+          const { getGroupMembers } = await import('@/lib/groups')
+          const members = await getGroupMembers(targetGroupId)
+          const targetMember = members.find(m => m.userId === memberId)
+          
+          if (!targetMember) {
+            throw new Error('Member not found in the selected group')
+          }
+
+          await penalizeMemberMutation.mutateAsync({
+            groupId: targetGroup.id,
+            groupName: targetGroup.name,
+            adminId: userProfile.id,
+            adminName: userProfile.name,
+            memberId,
+            memberName: targetMember.userName,
+            title,
+            description,
+            amount
+          })
+        }}
+      />
+
+      {selectedGroup && (
+        <PenaltyManagementModal
+          isOpen={showPenaltyManagementModal}
+          onClose={() => setShowPenaltyManagementModal(false)}
+          group={selectedGroup}
+          currentUser={userProfile}
+          onApplyPenalty={async (memberId: string, title: string, description: string, amount: number) => {
+            if (!userProfile?.id || !selectedGroup) {
+              throw new Error('User profile or group not available')
+            }
+
+            // Find the target member
+            const { getGroupMembers } = await import('@/lib/groups')
+            const members = await getGroupMembers(selectedGroup.id)
+            const targetMember = members.find(m => m.userId === memberId)
+            
+            if (!targetMember) {
+              throw new Error('Member not found in the group')
+            }
+
+            await penalizeMemberMutation.mutateAsync({
+              groupId: selectedGroup.id,
+              groupName: selectedGroup.name,
+              adminId: userProfile.id,
+              adminName: userProfile.name,
+              memberId,
+              memberName: targetMember.userName,
+              title,
+              description,
+              amount
+            })
+          }}
+        />
+      )}
+
+      {selectedGroup && (
+        <PenaltyApplicationModal
+          isOpen={showPenaltyApplicationModal}
+          onClose={() => setShowPenaltyApplicationModal(false)}
+          group={selectedGroup}
+          currentUser={userProfile}
+          onApplyPenalty={handleApplyPenalty}
+        />
+      )}
+
+      <QuickPenaltyApplicationModal
+        isOpen={showQuickPenaltyApplicationModal}
+        onClose={() => setShowQuickPenaltyApplicationModal(false)}
+        adminGroups={adminGroups}
+        currentUserId={user?.uid || ''}
+        onApplyPenalty={handleQuickApplyPenalty}
+      />
+
     </div>
   )
 }

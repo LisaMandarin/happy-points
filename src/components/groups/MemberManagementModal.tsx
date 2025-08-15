@@ -20,6 +20,7 @@ interface MemberManagementModalProps {
   currentUser: UserProfile | null
   onInviteUsers: (emails: string[]) => Promise<any>
   onMemberClick?: (member: any) => void
+  onPenaltyClick?: (member: any) => void
 }
 
 interface ManageInvitationsContentProps {
@@ -284,7 +285,8 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
   group,
   currentUser,
   onInviteUsers,
-  onMemberClick
+  onMemberClick,
+  onPenaltyClick
 }) => {
   const [activeTab, setActiveTab] = useState('view-members')
   const [showInviteModal, setShowInviteModal] = useState(false)
@@ -634,14 +636,41 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
 
                       {/* Action buttons for admin (only for non-admin members, not current user) */}
                       {isAdmin && !isCurrentUser && member.role !== 'admin' && (
-                        <div className="ml-4">
+                        <div className="ml-4 space-y-2">
+                          {/* Award/Penalty buttons */}
+                          {member.isActive !== false && (
+                            <div className="flex space-x-2">
+                              {onMemberClick && (
+                                <Button
+                                  size="small"
+                                  type="primary"
+                                  onClick={() => onMemberClick(member)}
+                                  className="bg-blue-600 border-blue-600 hover:bg-blue-700"
+                                >
+                                  🎁 Award
+                                </Button>
+                              )}
+                              {onPenaltyClick && (
+                                <Button
+                                  size="small"
+                                  danger
+                                  onClick={() => onPenaltyClick(member)}
+                                  className="bg-red-600 border-red-600 hover:bg-red-700"
+                                >
+                                  ⚠️ Penalty
+                                </Button>
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Deactivate/Activate buttons */}
                           {member.isActive !== false ? (
                             <Button
                               size="small"
                               type="default"
                               onClick={() => handleDeactivateMember(member)}
                               loading={removingMemberId === member.userId}
-                              className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:border-orange-300"
+                              className="w-full text-orange-600 border-orange-200 hover:bg-orange-50 hover:border-orange-300"
                             >
                               {removingMemberId === member.userId ? 'Deactivating...' : '⏸️ Deactivate'}
                             </Button>
@@ -651,7 +680,7 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
                               type="primary"
                               onClick={() => handleActivateMember(member)}
                               loading={removingMemberId === member.userId}
-                              className="bg-green-600 border-green-600 hover:bg-green-700 hover:border-green-700"
+                              className="w-full bg-green-600 border-green-600 hover:bg-green-700 hover:border-green-700"
                             >
                               {removingMemberId === member.userId ? 'Activating...' : '▶️ Activate'}
                             </Button>

@@ -5,6 +5,7 @@ import {
   setDoc,
   updateDoc,
   addDoc,
+  deleteDoc,
   query,
   orderBy,
   limit,
@@ -20,7 +21,12 @@ import {
   CreateUserProfileData, 
   PointsTransaction,
   CreateTransactionData,
-  TransactionType 
+  TransactionType,
+  GroupPenalty,
+  CreatePenaltyData,
+  GroupPenaltyType,
+  CreatePenaltyTypeData,
+  UpdatePenaltyTypeData
 } from '@/types'
 import { COLLECTIONS, DEFAULT_VALUES, ERROR_MESSAGES } from '@/lib/constants'
 
@@ -133,8 +139,8 @@ export const addPointsTransaction = async (
   }
 
   try {
-    // Check if user has sufficient points for redemption
-    if (type === 'redeem') {
+    // Check if user has sufficient points for redemption or penalty
+    if (type === 'redeem' || type === 'penalty') {
       const userProfile = await getUserProfile(userId)
       if (!userProfile || userProfile.currentPoints < amount) {
         throw new Error(ERROR_MESSAGES.FIRESTORE.INSUFFICIENT_POINTS)
@@ -162,9 +168,10 @@ export const addPointsTransaction = async (
     
     if (type === 'earn') {
       updates.totalEarned = increment(amount)
-    } else {
+    } else if (type === 'redeem') {
       updates.totalRedeemed = increment(amount)
     }
+    // For penalty, we don't update totalEarned or totalRedeemed as it's separate
     
     await updateDoc(userRef, updates)
     
@@ -202,6 +209,182 @@ export const getUserTransactions = async (
   } catch (error) {
     console.error('Error fetching user transactions:', error)
     return []
+  }
+}
+
+/**
+ * Create a penalty record and deduct points from user
+ */
+export const createGroupPenalty = async (
+  penaltyData: CreatePenaltyData
+): Promise<string> => {
+  const { groupId, groupName, adminId, adminName, memberId, memberName, title, description, amount } = penaltyData
+  
+  if (amount <= 0) {
+    throw new Error('Penalty amount must be positive')
+  }
+
+  if (adminId === memberId) {
+    throw new Error(ERROR_MESSAGES.GROUP.CANNOT_PENALIZE_SELF)
+  }
+
+  try {
+    // Check if user has sufficient points
+    const userProfile = await getUserProfile(memberId)
+    if (!userProfile || userProfile.currentPoints < amount) {
+      throw new Error(ERROR_MESSAGES.GROUP.INSUFFICIENT_POINTS_FOR_PENALTY)
+    }
+
+    // Create penalty transaction
+    const penaltyTransactionId = await addPointsTransaction({
+      userId: memberId,
+      type: 'penalty',
+      amount,
+      description: `Penalty: ${title}`,
+    })
+
+    // Create penalty record
+    const penaltiesRef = collection(db, COLLECTIONS.GROUP_PENALTIES)
+    const penaltyDocRef = await addDoc(penaltiesRef, {
+      groupId,
+      groupName,
+      adminId,
+      adminName,
+      memberId,
+      memberName,
+      title: title.trim(),
+      description: description.trim(),
+      amount,
+      transactionId: penaltyTransactionId,
+      createdAt: serverTimestamp(),
+    })
+
+    return penaltyDocRef.id
+  } catch (error) {
+    console.error('Error creating group penalty:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error(ERROR_MESSAGES.GROUP.PENALTY_FAILED)
+  }
+}
+
+/**
+ * Get penalties for a group
+ */
+export const getGroupPenalties = async (
+  groupId: string,
+  limitCount = DEFAULT_VALUES.PAGINATION.DEFAULT_LIMIT
+): Promise<GroupPenalty[]> => {
+  try {
+    const penaltiesRef = collection(db, COLLECTIONS.GROUP_PENALTIES)
+    const q = query(
+      penaltiesRef,
+      where('groupId', '==', groupId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    )
+    
+    const querySnapshot = await getDocs(q)
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as GroupPenalty[]
+  } catch (error) {
+    console.error('Error fetching group penalties:', error)
+    return []
+  }
+}
+
+/**
+ * Create a penalty type for a group
+ */
+export const createGroupPenaltyType = async (
+  penaltyTypeData: CreatePenaltyTypeData
+): Promise<string> => {
+  const { groupId, groupName, title, description, amount, createdBy, createdByName } = penaltyTypeData
+  
+  if (amount <= 0) {
+    throw new Error('Penalty amount must be positive')
+  }
+
+  try {
+    const penaltyTypesRef = collection(db, COLLECTIONS.GROUP_PENALTY_TYPES)
+    const penaltyTypeDocRef = await addDoc(penaltyTypesRef, {
+      groupId,
+      groupName,
+      title: title.trim(),
+      description: description.trim(),
+      amount,
+      isActive: true,
+      createdBy,
+      createdByName,
+      createdAt: serverTimestamp(),
+    })
+
+    return penaltyTypeDocRef.id
+  } catch (error) {
+    console.error('Error creating group penalty type:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to create penalty type')
+  }
+}
+
+/**
+ * Get penalty types for a group
+ */
+export const getGroupPenaltyTypes = async (
+  groupId: string,
+  limitCount = DEFAULT_VALUES.PAGINATION.DEFAULT_LIMIT
+): Promise<GroupPenaltyType[]> => {
+  try {
+    const penaltyTypesRef = collection(db, COLLECTIONS.GROUP_PENALTY_TYPES)
+    const q = query(
+      penaltyTypesRef,
+      where('groupId', '==', groupId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    )
+    
+    const querySnapshot = await getDocs(q)
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as GroupPenaltyType[]
+  } catch (error) {
+    console.error('Error fetching group penalty types:', error)
+    return []
+  }
+}
+
+/**
+ * Delete a penalty type
+ */
+export const deleteGroupPenaltyType = async (penaltyTypeId: string): Promise<void> => {
+  try {
+    const penaltyTypeRef = doc(db, COLLECTIONS.GROUP_PENALTY_TYPES, penaltyTypeId)
+    await deleteDoc(penaltyTypeRef)
+  } catch (error) {
+    console.error('Error deleting penalty type:', error)
+    throw new Error('Failed to delete penalty type')
+  }
+}
+
+/**
+ * Update a penalty type
+ */
+export const updateGroupPenaltyType = async (
+  penaltyTypeId: string, 
+  updateData: UpdatePenaltyTypeData
+): Promise<void> => {
+  try {
+    const penaltyTypeRef = doc(db, COLLECTIONS.GROUP_PENALTY_TYPES, penaltyTypeId)
+    await updateDoc(penaltyTypeRef, updateData as any)
+  } catch (error) {
+    console.error('Error updating penalty type:', error)
+    throw new Error('Failed to update penalty type')
   }
 }
 

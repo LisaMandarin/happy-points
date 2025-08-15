@@ -13,6 +13,8 @@ interface GroupCardProps {
   onMemberManagement?: () => void
   onTaskManagement?: () => void
   onAwardPoints?: () => void
+  onPenaltyManagement?: () => void
+  onApplyPenalties?: () => void
 }
 
 const GroupCard: React.FC<GroupCardProps> = ({
@@ -20,7 +22,9 @@ const GroupCard: React.FC<GroupCardProps> = ({
   currentUser,
   onMemberManagement,
   onTaskManagement,
-  onAwardPoints
+  onAwardPoints,
+  onPenaltyManagement,
+  onApplyPenalties
 }) => {
   const memberPercentage = (group.memberCount / group.maxMembers) * 100
   const isAdmin = currentUser?.id === group.adminId
@@ -95,28 +99,28 @@ const GroupCard: React.FC<GroupCardProps> = ({
       {/* Action Buttons */}
       {!isUserDeactivated && (
         <div className="mt-4 pt-3 border-t border-gray-200">
-          <div className="grid grid-cols-2 gap-2">
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={onMemberManagement}
-              className="text-xs flex items-center justify-center"
-            >
-              👥 Members
-            </Button>
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={onTaskManagement}
-              className="text-xs flex items-center justify-center relative"
-            >
-              📝 Tasks
-              {pendingItems.some(item => item.actionType === 'task-applications') && (
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
-              )}
-            </Button>
-            {isAdmin && (
-              <>
+          {isAdmin ? (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={onMemberManagement}
+                  className="text-xs flex items-center justify-center"
+                >
+                  👥 Members
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={onTaskManagement}
+                  className="text-xs flex items-center justify-center relative"
+                >
+                  📝 Tasks
+                  {pendingItems.some(item => item.actionType === 'task-applications') && (
+                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+                  )}
+                </Button>
                 <Button 
                   size="sm" 
                   variant="outline"
@@ -125,9 +129,55 @@ const GroupCard: React.FC<GroupCardProps> = ({
                 >
                   🎁 Award Points
                 </Button>
-              </>
-            )}
-          </div>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={onPenaltyManagement}
+                  className="text-xs flex items-center justify-center"
+                >
+                  🚨 Penalties
+                </Button>
+              </div>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={onApplyPenalties}
+                className="text-xs flex items-center justify-center"
+              >
+                ⚡ Apply Penalties
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={onMemberManagement}
+                className="text-xs flex items-center justify-center"
+              >
+                👥 Members
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={onTaskManagement}
+                className="text-xs flex items-center justify-center relative"
+              >
+                📝 Tasks
+                {pendingItems.some(item => item.actionType === 'task-applications') && (
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+                )}
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={onPenaltyManagement}
+                className="text-xs flex items-center justify-center"
+              >
+                🚨 Penalties
+              </Button>
+            </div>
+          )}
         </div>
       )}
       

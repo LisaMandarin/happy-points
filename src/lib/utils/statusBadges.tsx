@@ -1,6 +1,6 @@
 import React from 'react'
 import { Badge } from '@/components/ui'
-import { GroupInvitation, GroupTask } from '@/types'
+import { GroupInvitation, GroupTask, GroupPenaltyType } from '@/types'
 
 /**
  * Status badge for task applications and join requests (pending/approved/rejected)
@@ -43,6 +43,17 @@ export const getInvitationStatusBadge = (invitation: GroupInvitation) => {
  */
 export const getTaskStatusBadge = (task: GroupTask) => {
   if (task.isActive) {
+    return <Badge variant="success" size="sm">Active</Badge>
+  } else {
+    return <Badge variant="default" size="sm">Inactive</Badge>
+  }
+}
+
+/**
+ * Status badge for penalty types (active/inactive)
+ */
+export const getPenaltyTypeStatusBadge = (penaltyType: GroupPenaltyType) => {
+  if (penaltyType.isActive) {
     return <Badge variant="success" size="sm">Active</Badge>
   } else {
     return <Badge variant="default" size="sm">Inactive</Badge>

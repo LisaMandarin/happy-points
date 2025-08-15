@@ -11,7 +11,8 @@ import {
   resendInvitation
 } from '@/lib/groups'
 import { awardPointsToMember } from '@/lib/tasks'
-import { Group, GroupMember, GroupInvitation, CreateGroupData } from '@/types'
+import { createGroupPenalty, getGroupPenalties, createGroupPenaltyType, getGroupPenaltyTypes, deleteGroupPenaltyType, updateGroupPenaltyType } from '@/lib/firestore'
+import { Group, GroupMember, GroupInvitation, CreateGroupData, UpdatePenaltyTypeData } from '@/types'
 import { useAuthStore } from '@/stores/authStore'
 
 // Query Keys
@@ -24,6 +25,8 @@ export const groupKeys = {
   members: (groupId: string) => [...groupKeys.detail(groupId), 'members'] as const,
   invitations: (groupId: string) => [...groupKeys.detail(groupId), 'invitations'] as const,
   invitationCount: (groupId: string) => [...groupKeys.detail(groupId), 'invitationCount'] as const,
+  penalties: (groupId: string) => [...groupKeys.detail(groupId), 'penalties'] as const,
+  penaltyTypes: (groupId: string) => [...groupKeys.detail(groupId), 'penaltyTypes'] as const,
 }
 
 // Groups Queries
@@ -55,6 +58,22 @@ export const useGroupInvitationCount = (groupId?: string) => {
   return useQuery({
     queryKey: groupKeys.invitationCount(groupId || ''),
     queryFn: () => getGroupInvitationCount(groupId!),
+    enabled: !!groupId,
+  })
+}
+
+export const useGroupPenalties = (groupId?: string) => {
+  return useQuery({
+    queryKey: groupKeys.penalties(groupId || ''),
+    queryFn: () => getGroupPenalties(groupId!),
+    enabled: !!groupId,
+  })
+}
+
+export const useGroupPenaltyTypes = (groupId?: string) => {
+  return useQuery({
+    queryKey: groupKeys.penaltyTypes(groupId || ''),
+    queryFn: () => getGroupPenaltyTypes(groupId!),
     enabled: !!groupId,
   })
 }
@@ -178,6 +197,127 @@ export const useAwardPoints = () => {
       
       // Invalidate all group queries to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['groups'] })
+    },
+  })
+}
+
+export const usePenalizeMember = () => {
+  const queryClient = useQueryClient()
+  const { refreshProfile } = useAuthStore()
+  
+  return useMutation({
+    mutationFn: ({ 
+      groupId, 
+      groupName, 
+      adminId, 
+      adminName, 
+      memberId, 
+      memberName, 
+      title,
+      description,
+      amount 
+    }: {
+      groupId: string;
+      groupName: string;
+      adminId: string;
+      adminName: string;
+      memberId: string;
+      memberName: string;
+      title: string;
+      description: string;
+      amount: number;
+    }) => createGroupPenalty({
+      groupId,
+      groupName,
+      adminId,
+      adminName,
+      memberId,
+      memberName,
+      title,
+      description,
+      amount
+    }),
+    onSuccess: (_, { groupId, memberId, adminId }) => {
+      // Invalidate group-related queries
+      queryClient.invalidateQueries({ queryKey: groupKeys.members(groupId) })
+      queryClient.invalidateQueries({ queryKey: groupKeys.list(adminId) })
+      queryClient.invalidateQueries({ queryKey: groupKeys.penalties(groupId) })
+      
+      // Invalidate transaction queries for the member
+      queryClient.invalidateQueries({ queryKey: ['transactions', memberId] })
+      
+      // Refresh the member's profile in auth store if they're the current user
+      const currentUser = useAuthStore.getState().user
+      if (currentUser && currentUser.uid === memberId) {
+        refreshProfile(memberId)
+      }
+      
+      // Invalidate all group queries to ensure consistency
+      queryClient.invalidateQueries({ queryKey: ['groups'] })
+    },
+  })
+}
+
+export const useCreatePenaltyType = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ 
+      groupId, 
+      groupName, 
+      title, 
+      description, 
+      amount, 
+      createdBy, 
+      createdByName 
+    }: {
+      groupId: string;
+      groupName: string;
+      title: string;
+      description: string;
+      amount: number;
+      createdBy: string;
+      createdByName: string;
+    }) => createGroupPenaltyType({
+      groupId,
+      groupName,
+      title,
+      description,
+      amount,
+      createdBy,
+      createdByName
+    }),
+    onSuccess: (_, { groupId }) => {
+      // Invalidate penalty types to refetch
+      queryClient.invalidateQueries({ queryKey: groupKeys.penaltyTypes(groupId) })
+    },
+  })
+}
+
+export const useDeletePenaltyType = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ penaltyTypeId, groupId }: { penaltyTypeId: string; groupId: string }) => deleteGroupPenaltyType(penaltyTypeId),
+    onSuccess: (_, { groupId }) => {
+      // Invalidate penalty types to refetch
+      queryClient.invalidateQueries({ queryKey: groupKeys.penaltyTypes(groupId) })
+    },
+  })
+}
+
+export const useUpdatePenaltyType = () => {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: ({ penaltyTypeId, groupId, updateData }: { 
+      penaltyTypeId: string; 
+      groupId: string; 
+      updateData: UpdatePenaltyTypeData 
+    }) => updateGroupPenaltyType(penaltyTypeId, updateData),
+    onSuccess: (_, { groupId }) => {
+      // Invalidate penalty types to refetch
+      queryClient.invalidateQueries({ queryKey: groupKeys.penaltyTypes(groupId) })
     },
   })
 }
