@@ -31,6 +31,7 @@ import PenaltyModal from '@/components/groups/PenaltyModal'
 import PenaltyManagementModal from '@/components/groups/PenaltyManagementModal'
 import PenaltyApplicationModal from '@/components/groups/PenaltyApplicationModal'
 import QuickPenaltyApplicationModal from '@/components/groups/QuickPenaltyApplicationModal'
+import { useUserGroupPointsBreakdown } from '@/hooks/useUserGroupPointsBreakdown'
 import { Button, Alert } from 'antd'
 
 export default function Dashboard() {
@@ -42,6 +43,7 @@ export default function Dashboard() {
   const { data: groups = [], isLoading: loadingGroups } = useUserGroups(user?.uid)
   const { data: notifications = [], isLoading: loadingNotifications } = useUserNotifications(user?.uid, 5)
   const { data: pendingItems = [] } = useUserPendingItems(user?.uid, groups)
+  const { groupBreakdown, overallTotals, isLoading: loadingGroupBreakdown } = useUserGroupPointsBreakdown(user?.uid, groups)
 
   // Mutations
   const createGroupMutation = useCreateGroup()
@@ -66,7 +68,6 @@ export default function Dashboard() {
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
   const [selectedTask, setSelectedTask] = useState<any>(null)
   const [selectedMember, setSelectedMember] = useState<any>(null)
-  const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0)
 
   // Messages
   const [successMessage, setSuccessMessage] = useState('')
@@ -180,7 +181,6 @@ export default function Dashboard() {
         taskData
       )
       setSuccessMessage('Task created successfully!')
-      setTaskRefreshTrigger(prev => prev + 1)
       clearMessages()
     } catch (error) {
       console.error('Error creating task:', error)
@@ -200,7 +200,6 @@ export default function Dashboard() {
       const { updateGroupTask } = await import('@/lib/tasks')
       await updateGroupTask(taskId, taskData)
       setSuccessMessage('Task updated successfully!')
-      setTaskRefreshTrigger(prev => prev + 1)
       clearMessages()
     } catch (error) {
       console.error('Error updating task:', error)
@@ -405,26 +404,43 @@ export default function Dashboard() {
                     </div>
                   </div>
                   
-                  <div className="mt-6 grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <p className="text-2xl font-bold text-blue-600">
-                        {userProfile?.currentPoints || 0}
-                      </p>
-                      <p className="text-sm text-gray-500">Current Points</p>
+                  {/* Group Breakdown Section */}
+                  {groups.length > 0 && !loadingGroupBreakdown ? (
+                    <div className="mt-6">
+                      <div className="mb-3">
+                        <span className="text-sm font-medium text-gray-700">
+                          Points by Group ({groupBreakdown.length} groups)
+                        </span>
+                      </div>
+                      <div className="space-y-3">
+                        {groupBreakdown.map((group) => (
+                          <div key={group.groupId} className="bg-gray-50 rounded-lg p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-sm font-medium text-gray-900">{group.groupName}</h4>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                              <div>
+                                <p className="text-lg font-semibold text-blue-600">{group.currentPoints}</p>
+                                <p className="text-xs text-gray-500">Current</p>
+                              </div>
+                              <div>
+                                <p className="text-lg font-semibold text-green-600">{group.totalEarned}</p>
+                                <p className="text-xs text-gray-500">Earned</p>
+                              </div>
+                              <div>
+                                <p className="text-lg font-semibold text-orange-600">{group.totalRedeemed}</p>
+                                <p className="text-xs text-gray-500">Redeemed</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-2xl font-bold text-green-600">
-                        {userProfile?.totalEarned || 0}
-                      </p>
-                      <p className="text-sm text-gray-500">Total Earned</p>
+                  ) : loadingGroupBreakdown ? (
+                    <div className="mt-6 text-center text-gray-500">
+                      Loading group breakdown...
                     </div>
-                    <div>
-                      <p className="text-2xl font-bold text-orange-600">
-                        {userProfile?.totalRedeemed || 0}
-                      </p>
-                      <p className="text-sm text-gray-500">Total Redeemed</p>
-                    </div>
-                  </div>
+                  ) : null}
                 </div>
               </div>
 
@@ -532,7 +548,6 @@ export default function Dashboard() {
                         onAwardPoints={() => openGroupModal(group, 'award-points')}
                         onPenaltyManagement={() => openGroupModal(group, 'penalty-management')}
                         onApplyPenalties={() => openGroupModal(group, 'apply-penalties')}
-                        onViewPenalties={() => openGroupModal(group, 'view-penalties')}
                       />
                     ))}
                   </div>
@@ -638,12 +653,9 @@ export default function Dashboard() {
             group={selectedGroup}
             currentUser={userProfile}
             onCreateTask={handleCreateTask}
-            onEditTask={handleEditTask}
             onUpdateTask={handleUpdateTask}
             onApplicationProcessed={handleApplicationProcessed}
             onTaskClaimed={handleTaskClaimed}
-            onInviteUsers={handleInviteUsers}
-            refreshTrigger={taskRefreshTrigger}
           />
           
           <CreateTaskModal
