@@ -160,7 +160,7 @@ export interface Group {
   adminName: string
   memberCount: number
   maxMembers: number
-  isPrivate: boolean
+  // isPrivate: boolean
   createdAt: Date | Timestamp
   updatedAt: Date | Timestamp
   isUserActive?: boolean  // Added to track if current user is active in this group
@@ -203,7 +203,7 @@ export interface CreateGroupData {
   name: string
   description: string
   maxMembers: number
-  isPrivate: boolean
+  // isPrivate: boolean
 }
 
 
@@ -218,7 +218,7 @@ export interface CreateGroupFormData {
   name: string
   description: string
   maxMembers: number
-  isPrivate: boolean
+  // isPrivate: boolean
 }
 
 

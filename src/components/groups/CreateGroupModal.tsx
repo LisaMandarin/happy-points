@@ -29,7 +29,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
       name: '',
       description: '',
       maxMembers: DEFAULT_VALUES.GROUP.DEFAULT_MAX_MEMBERS,
-      isPrivate: true, // All groups are now private by default
+      // isPrivate: true, // All groups are now private by default
     },
     validate: (values) => {
       const errors: { [key: string]: string } = {}
@@ -146,7 +146,7 @@ const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             📧 Invitation-Only Groups
           </h4>
           <p className="text-sm text-blue-800">
-            All groups are private and can only be joined through invitations sent by the group admin. 
+            All groups can only be joined through invitations sent by the group admin. 
             Share invitation links with people you want to join your group.
           </p>
         </div>
