@@ -435,6 +435,29 @@ export const activateGroupMember = async (
 export const removeGroupMember = deactivateGroupMember
 
 /**
+ * Check which emails correspond to existing group members
+ */
+export const checkExistingGroupMembers = async (
+  groupId: string,
+  emails: string[]
+): Promise<string[]> => {
+  try {
+    const members = await getGroupMembers(groupId)
+    const memberEmails = members
+      .filter(member => member.isActive !== false) // Only check active members
+      .map(member => member.userEmail.toLowerCase())
+    
+    const normalizedEmails = emails.map(email => email.toLowerCase())
+    const existingMembers = normalizedEmails.filter(email => memberEmails.includes(email))
+    
+    return existingMembers
+  } catch (error) {
+    console.error('Error checking existing group members:', error)
+    return []
+  }
+}
+
+/**
  * Send group invitations
  */
 export const sendGroupInvitations = async (
@@ -443,6 +466,15 @@ export const sendGroupInvitations = async (
   groupName: string
 ): Promise<GroupInvitation[]> => {
   try {
+    // Check for existing group members first
+    const existingMemberEmails = await checkExistingGroupMembers(inviteData.groupId, inviteData.emails)
+    if (existingMemberEmails.length > 0) {
+      const errorMessage = existingMemberEmails.length === 1
+        ? `${existingMemberEmails[0]} is already a member of this group`
+        : `The following users are already group members: ${existingMemberEmails.join(', ')}`
+      throw new Error(errorMessage)
+    }
+
     const invitations: GroupInvitation[] = []
     const invitationsRef = collection(db, COLLECTIONS.GROUP_INVITATIONS)
     const expiresAt = new Date()

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { Modal, Button, Tabs } from 'antd'
 import { Group, UserProfile, GroupMember, GroupInvitation, InviteUsersFormData } from '@/types'
 import { LoadingSpinner, Badge, Alert } from '@/components/ui'
-import { getGroupMembers, deactivateGroupMember, activateGroupMember, cancelInvitation, resendInvitation } from '@/lib/groups'
+import { getGroupMembers, deactivateGroupMember, activateGroupMember, cancelInvitation, resendInvitation, checkExistingGroupMembers } from '@/lib/groups'
 import { getUserProfile, getUserByEmail } from '@/lib/firestore'
 import { formatDate, formatPoints, validateEmail, generateInvitationLink, getTimeAgo } from '@/lib/utils'
 import { useForm } from '@/hooks/useForm'
@@ -478,6 +478,7 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
       const invalidEmails = emailList.filter(email => !validateEmail(email))
       if (invalidEmails.length > 0) {
         errors.emails = `Invalid email addresses: ${invalidEmails.join(', ')}`
+        return errors
       }
 
       // Check if admin is trying to invite themselves
@@ -485,11 +486,13 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
         const adminEmail = emailList.find(email => email.toLowerCase() === currentUser.email!.toLowerCase())
         if (adminEmail) {
           errors.emails = 'You cannot invite yourself to the group'
+          return errors
         }
       }
 
       if (emailList.length > 10) {
         errors.emails = 'Maximum 10 email addresses allowed'
+        return errors
       }
 
       return errors
@@ -500,6 +503,16 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
           .split(/[,\n]/)
           .map(email => email.trim().toLowerCase())
           .filter((email, index, arr) => email.length > 0 && arr.indexOf(email) === index) // Remove duplicates
+
+        // Check for existing group members before submitting
+        const existingMembers = await checkExistingGroupMembers(group.id, emailList)
+        if (existingMembers.length > 0) {
+          const errorMessage = existingMembers.length === 1
+            ? `${existingMembers[0]} is already a member of this group`
+            : `The following users are already group members: ${existingMembers.join(', ')}`
+          setInviteFieldError('emails', errorMessage)
+          return
+        }
 
         const result = await onInviteUsers(emailList)
         setInvitations(result)
@@ -949,6 +962,7 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
         onClose={closeSubModals}
         onInviteUsers={onInviteUsers}
         groupName={group.name}
+        groupId={group.id}
         currentUserEmail={currentUser?.email}
       />
       

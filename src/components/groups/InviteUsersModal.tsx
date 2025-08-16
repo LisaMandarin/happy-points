@@ -6,12 +6,14 @@ import { useForm } from '@/hooks/useForm'
 import { InviteUsersFormData, GroupInvitation } from '@/types'
 import { validateEmail, generateInvitationLink } from '@/lib/utils'
 import { getUserByEmail } from '@/lib/firestore'
+import { checkExistingGroupMembers } from '@/lib/groups'
 
 interface InviteUsersModalProps {
   isOpen: boolean
   onClose: () => void
   onInviteUsers: (emails: string[]) => Promise<GroupInvitation[]>
   groupName: string
+  groupId: string
   currentUserEmail?: string
 }
 
@@ -20,6 +22,7 @@ const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
   onClose,
   onInviteUsers,
   groupName,
+  groupId,
   currentUserEmail
 }) => {
   const [invitations, setInvitations] = useState<GroupInvitation[]>([])
@@ -59,6 +62,7 @@ const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
       const invalidEmails = emailList.filter(email => !validateEmail(email))
       if (invalidEmails.length > 0) {
         errors.emails = `Invalid email addresses: ${invalidEmails.join(', ')}`
+        return errors
       }
 
       // Check if admin is trying to invite themselves
@@ -66,11 +70,13 @@ const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
         const adminEmail = emailList.find(email => email.toLowerCase() === currentUserEmail.toLowerCase())
         if (adminEmail) {
           errors.emails = 'You cannot invite yourself to the group'
+          return errors
         }
       }
 
       if (emailList.length > 10) {
         errors.emails = 'Maximum 10 email addresses allowed'
+        return errors
       }
 
       return errors
@@ -81,6 +87,16 @@ const InviteUsersModal: React.FC<InviteUsersModalProps> = ({
           .split(/[,\n]/)
           .map(email => email.trim().toLowerCase())
           .filter((email, index, arr) => email.length > 0 && arr.indexOf(email) === index) // Remove duplicates
+
+        // Check for existing group members before submitting
+        const existingMembers = await checkExistingGroupMembers(groupId, emailList)
+        if (existingMembers.length > 0) {
+          const errorMessage = existingMembers.length === 1
+            ? `${existingMembers[0]} is already a member of this group`
+            : `The following users are already group members: ${existingMembers.join(', ')}`
+          setFieldError('emails', errorMessage)
+          return
+        }
 
         const result = await onInviteUsers(emailList)
         setInvitations(result)

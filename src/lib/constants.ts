@@ -81,6 +81,7 @@ export const ERROR_MESSAGES = {
     GROUP_NOT_FOUND: 'Group not found',
     GROUP_FULL: 'Group is full',
     ALREADY_MEMBER: 'You are already a member of this group',
+    ALREADY_GROUP_MEMBERS: 'The following users are already group members',
     NOT_ADMIN: 'Only group admin can perform this action',
     INVITE_FAILED: 'Failed to send invitation',
     INVALID_INVITATION: 'Invalid or expired invitation',
