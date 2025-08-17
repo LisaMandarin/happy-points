@@ -9,7 +9,7 @@ interface RedeemPrizesModalProps {
   onClose: () => void
   memberGroups: Group[]
   currentUser?: any
-  onRedeemPrize: (groupId: string, description: string, amount: number) => Promise<void>
+  onSubmitApplication: (groupId: string, description: string, amount: number) => Promise<void>
 }
 
 interface RedeemFormData {
@@ -36,7 +36,7 @@ export default function RedeemPrizesModal({
   onClose,
   memberGroups = [],
   currentUser,
-  onRedeemPrize
+  onSubmitApplication
 }: RedeemPrizesModalProps) {
   const [loading, setLoading] = useState(false)
   const [groupMembers, setGroupMembers] = useState<{ [groupId: string]: any }>({})
@@ -163,12 +163,12 @@ export default function RedeemPrizesModal({
     clearError('general')
 
     try {
-      await onRedeemPrize(values.groupId, description, amount)
+      await onSubmitApplication(values.groupId, description, amount)
       resetForm()
       onClose()
     } catch (error) {
-      console.error('Error redeeming prize:', error)
-      setError('general', error instanceof Error ? error.message : 'Failed to redeem prize')
+      console.error('Error submitting application:', error)
+      setError('general', error instanceof Error ? error.message : 'Failed to submit application')
     } finally {
       setLoading(false)
     }
@@ -185,7 +185,7 @@ export default function RedeemPrizesModal({
 
   return (
     <Modal
-      title="🎁 Redeem Prizes"
+      title="🎁 Apply for Prize Redemption"
       open={isOpen}
       onCancel={handleClose}
       footer={[
@@ -193,13 +193,13 @@ export default function RedeemPrizesModal({
           Cancel
         </Button>,
         <Button
-          key="redeem"
+          key="submit"
           type="primary"
           loading={loading}
           onClick={handleSubmit}
           disabled={!isValid()}
         >
-          Redeem Prize
+          Submit Application
         </Button>
       ]}
       width={600}
@@ -327,9 +327,9 @@ export default function RedeemPrizesModal({
         </Form>
 
         <div className="text-xs text-gray-500 mt-4">
-          <p>• Prize redemptions are processed immediately</p>
-          <p>• Points will be deducted from your group balance</p>
-          <p>• Contact your group admin to claim your prize</p>
+          <p>• Prize redemption applications require admin approval</p>
+          <p>• Points will be deducted only after approval</p>
+          <p>• You'll be notified when your application is reviewed</p>
         </div>
       </div>
     </Modal>

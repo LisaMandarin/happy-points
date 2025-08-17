@@ -30,7 +30,9 @@ import {
   GroupPrize,
   CreatePrizeData,
   UpdatePrizeData,
-  CreatePrizeRedemptionData
+  CreatePrizeRedemptionData,
+  PrizeRedemptionApplication,
+  CreatePrizeRedemptionApplicationData
 } from '@/types'
 import { COLLECTIONS, DEFAULT_VALUES, ERROR_MESSAGES } from '@/lib/constants'
 
@@ -537,6 +539,209 @@ export const addGroupPrizeRedemption = async (
       throw error
     }
     throw new Error('Failed to redeem prize')
+  }
+}
+
+/**
+ * Create a prize redemption application (pending admin approval)
+ */
+export const createPrizeRedemptionApplication = async (
+  applicationData: CreatePrizeRedemptionApplicationData
+): Promise<string> => {
+  const { groupId, userId, pointsCost } = applicationData
+
+  if (pointsCost <= 0) {
+    throw new Error('Prize cost must be positive')
+  }
+
+  try {
+    // Check if user has enough points in the group
+    const { getGroupMembers } = await import('@/lib/groups')
+    const members = await getGroupMembers(groupId)
+    const userMember = members.find((m: any) => m.userId === userId)
+    
+    if (!userMember) {
+      throw new Error('User is not a member of this group')
+    }
+
+    const currentPoints = (userMember.pointsEarned || 0) - (userMember.pointsRedeemed || 0)
+    if (currentPoints < pointsCost) {
+      throw new Error(`Insufficient points. You have ${currentPoints} points but need ${pointsCost} points.`)
+    }
+
+    // Create application record
+    const applicationsRef = collection(db, COLLECTIONS.PRIZE_REDEMPTION_APPLICATIONS)
+    const applicationDocRef = await addDoc(applicationsRef, {
+      ...applicationData,
+      status: 'pending',
+      createdAt: serverTimestamp(),
+    })
+
+    return applicationDocRef.id
+  } catch (error) {
+    console.error('Error creating redemption application:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to create redemption application')
+  }
+}
+
+/**
+ * Get prize redemption applications for a group
+ */
+export const getGroupPrizeRedemptionApplications = async (
+  groupId: string
+): Promise<PrizeRedemptionApplication[]> => {
+  try {
+    const applicationsRef = collection(db, COLLECTIONS.PRIZE_REDEMPTION_APPLICATIONS)
+    const q = query(
+      applicationsRef,
+      where('groupId', '==', groupId),
+      orderBy('createdAt', 'desc')
+    )
+    
+    const snapshot = await getDocs(q)
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+      approvedAt: doc.data().approvedAt?.toDate() || undefined,
+    })) as PrizeRedemptionApplication[]
+  } catch (error) {
+    console.error('Error getting redemption applications:', error)
+    throw new Error('Failed to get redemption applications')
+  }
+}
+
+/**
+ * Approve a prize redemption application
+ */
+export const approvePrizeRedemptionApplication = async (
+  applicationId: string,
+  approvedBy: string,
+  approvedByName: string
+): Promise<void> => {
+  try {
+    // Get the application details
+    const applicationRef = doc(db, COLLECTIONS.PRIZE_REDEMPTION_APPLICATIONS, applicationId)
+    const applicationDoc = await getDoc(applicationRef)
+    
+    if (!applicationDoc.exists()) {
+      throw new Error('Application not found')
+    }
+    
+    const application = applicationDoc.data() as PrizeRedemptionApplication
+    if (application.status !== 'pending') {
+      throw new Error('Application is not pending')
+    }
+
+    // Check if user still has enough points
+    const { getGroupMembers } = await import('@/lib/groups')
+    const members = await getGroupMembers(application.groupId)
+    const userMember = members.find((m: any) => m.userId === application.userId)
+    
+    if (!userMember) {
+      throw new Error('User is not a member of this group')
+    }
+
+    const currentPoints = (userMember.pointsEarned || 0) - (userMember.pointsRedeemed || 0)
+    if (currentPoints < application.pointsCost) {
+      throw new Error(`User no longer has sufficient points. They have ${currentPoints} points but need ${application.pointsCost} points.`)
+    }
+
+    const batch = writeBatch(db)
+
+    // Update application status
+    batch.update(applicationRef, {
+      status: 'approved',
+      approvedBy,
+      approvedByName,
+      approvedAt: serverTimestamp(),
+    })
+
+    // Create redemption record
+    const redemptionsRef = collection(db, COLLECTIONS.GROUP_PRIZE_REDEMPTIONS)
+    const redemptionRef = doc(redemptionsRef)
+    batch.set(redemptionRef, {
+      groupId: application.groupId,
+      groupName: application.groupName,
+      prizeId: application.prizeId || '',
+      prizeTitle: application.prizeTitle,
+      prizeDescription: application.prizeDescription,
+      pointsCost: application.pointsCost,
+      userId: application.userId,
+      userName: application.userName,
+      createdAt: serverTimestamp(),
+    })
+
+    // Update user's redeemed points in the group
+    const memberRef = doc(db, COLLECTIONS.GROUP_MEMBERS, userMember.id)
+    batch.update(memberRef, {
+      pointsRedeemed: increment(application.pointsCost),
+      updatedAt: serverTimestamp()
+    })
+
+    // Create transaction record for the user
+    const transactionsRef = collection(db, COLLECTIONS.TRANSACTIONS)
+    const transactionRef = doc(transactionsRef)
+    batch.set(transactionRef, {
+      userId: application.userId,
+      type: 'redeem' as TransactionType,
+      amount: application.pointsCost,
+      description: `Prize redeemed: ${application.prizeTitle}`,
+      createdAt: serverTimestamp(),
+    })
+
+    // Update user's total redeemed points and current points
+    const userRef = doc(db, COLLECTIONS.USERS, application.userId)
+    batch.update(userRef, {
+      currentPoints: increment(-application.pointsCost),
+      totalRedeemed: increment(application.pointsCost),
+      updatedAt: serverTimestamp(),
+    })
+
+    await batch.commit()
+  } catch (error) {
+    console.error('Error approving redemption application:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to approve redemption application')
+  }
+}
+
+/**
+ * Reject a prize redemption application
+ */
+export const rejectPrizeRedemptionApplication = async (
+  applicationId: string,
+  rejectionReason: string
+): Promise<void> => {
+  try {
+    const applicationRef = doc(db, COLLECTIONS.PRIZE_REDEMPTION_APPLICATIONS, applicationId)
+    const applicationDoc = await getDoc(applicationRef)
+    
+    if (!applicationDoc.exists()) {
+      throw new Error('Application not found')
+    }
+    
+    const application = applicationDoc.data() as PrizeRedemptionApplication
+    if (application.status !== 'pending') {
+      throw new Error('Application is not pending')
+    }
+
+    await updateDoc(applicationRef, {
+      status: 'rejected',
+      rejectionReason,
+      approvedAt: serverTimestamp(),
+    })
+  } catch (error) {
+    console.error('Error rejecting redemption application:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to reject redemption application')
   }
 }
 

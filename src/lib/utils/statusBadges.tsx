@@ -5,7 +5,7 @@ import { GroupInvitation, GroupTask, GroupPenaltyType } from '@/types'
 /**
  * Status badge for task applications and join requests (pending/approved/rejected)
  */
-export const getApplicationStatusBadge = (status: string) => {
+export const getApplicationStatusBadge = (status: string, rejectionReason?: string) => {
   switch (status) {
     case 'pending':
       return <Badge variant="warning" size="sm">Pending</Badge>

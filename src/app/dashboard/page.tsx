@@ -280,34 +280,34 @@ export default function Dashboard() {
     })
   }
 
-  const handleRedeemPrize = async (groupId: string, description: string, amount: number) => {
+  const handleSubmitPrizeApplication = async (groupId: string, description: string, amount: number) => {
     if (!userProfile) {
       throw new Error('User profile not available')
     }
 
     try {
-      const { addPointsTransaction } = await import('@/lib/firestore')
+      const { createPrizeRedemptionApplication } = await import('@/lib/firestore')
       
-      // Find the group name for the transaction description
+      // Find the group name for the application
       const group = memberGroups.find(g => g.id === groupId)
       const groupName = group ? group.name : 'Unknown Group'
       
-      // Create the redemption transaction
-      await addPointsTransaction({
+      // Create the redemption application
+      await createPrizeRedemptionApplication({
+        groupId,
+        groupName,
+        prizeTitle: description,
+        prizeDescription: description,
+        pointsCost: amount,
         userId: userProfile.id,
-        type: 'redeem',
-        amount,
-        description: `Prize redeemed in ${groupName}: ${description}`
+        userName: userProfile.name
       })
-
-      // Refresh user profile to update points
-      await refreshProfile()
       
-      setSuccessMessage(`Successfully redeemed: ${description}`)
+      setSuccessMessage(`Application submitted for: ${description}. Awaiting admin approval.`)
       clearMessages()
     } catch (error) {
-      console.error('Error redeeming prize:', error)
-      setErrorMessage(error instanceof Error ? error.message : 'Failed to redeem prize. Please try again.')
+      console.error('Error submitting application:', error)
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to submit application. Please try again.')
       clearMessages()
       throw error
     }
@@ -543,7 +543,7 @@ export default function Dashboard() {
                               className="w-full relative"
                               type="default"
                             >
-                              🎁 Redeem Prizes
+                              🎁 Apply for Prizes
                             </Button>
                           </>
                         )}
@@ -559,7 +559,7 @@ export default function Dashboard() {
                           {isMemberOfAnyGroup && (
                             <>
                               <p>• Claim Points: Apply for tasks in groups where you're a member ({memberGroups.length} group{memberGroups.length !== 1 ? 's' : ''})</p>
-                              <p>• Redeem Prizes: Use your points to redeem rewards and prizes</p>
+                              <p>• Apply for Prizes: Submit applications to redeem rewards and prizes</p>
                             </>
                           )}
                         </div>
@@ -902,7 +902,7 @@ export default function Dashboard() {
         onClose={() => setShowRedeemPrizesModal(false)}
         memberGroups={memberGroups}
         currentUser={userProfile}
-        onRedeemPrize={handleRedeemPrize}
+        onSubmitApplication={handleSubmitPrizeApplication}
       />
 
       {selectedGroup && (
@@ -922,13 +922,13 @@ export default function Dashboard() {
           currentUser={userProfile}
           onRedeemPrize={async (prize) => {
             try {
-              const { addGroupPrizeRedemption } = await import('@/lib/firestore')
+              const { createPrizeRedemptionApplication } = await import('@/lib/firestore')
               
               if (!userProfile?.id) {
                 throw new Error('User profile not available')
               }
 
-              await addGroupPrizeRedemption({
+              await createPrizeRedemptionApplication({
                 groupId: selectedGroup.id,
                 groupName: selectedGroup.name,
                 prizeId: prize.id,
@@ -939,17 +939,18 @@ export default function Dashboard() {
                 userName: userProfile.name
               })
 
-              setSuccessMessage(`Successfully redeemed: ${prize.title}`)
+              setSuccessMessage(`Application submitted for: ${prize.title}. Awaiting admin approval.`)
               clearMessages()
               closeModals()
             } catch (error) {
-              console.error('Error redeeming prize:', error)
-              setErrorMessage(error instanceof Error ? error.message : 'Failed to redeem prize. Please try again.')
+              console.error('Error submitting application:', error)
+              setErrorMessage(error instanceof Error ? error.message : 'Failed to submit application. Please try again.')
               clearMessages()
             }
           }}
         />
       )}
+
 
     </div>
   )

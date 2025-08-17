@@ -93,7 +93,7 @@ export default function ViewPrizesModal({
           onClick={() => onRedeemPrize?.(record)}
           disabled={userPoints < record.pointsCost}
         >
-          {userPoints < record.pointsCost ? 'Insufficient Points' : 'Redeem'}
+          {userPoints < record.pointsCost ? 'Insufficient Points' : 'Apply'}
         </Button>
       ),
     },
@@ -134,9 +134,9 @@ export default function ViewPrizesModal({
         />
 
         <div className="text-xs text-gray-500 space-y-1">
-          <p>• Click "Redeem" to exchange your points for prizes</p>
-          <p>• Contact your group admin to claim redeemed prizes</p>
-          <p>• You can only redeem prizes if you have sufficient points</p>
+          <p>• Click "Apply" to submit a redemption application</p>
+          <p>• Applications require admin approval before points are deducted</p>
+          <p>• You can only apply for prizes if you have sufficient points</p>
         </div>
       </div>
     </Modal>

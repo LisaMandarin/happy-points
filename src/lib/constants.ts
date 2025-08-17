@@ -11,6 +11,7 @@ export const COLLECTIONS = {
   GROUP_PENALTY_TYPES: 'groupPenaltyTypes',
   GROUP_PRIZES: 'groupPrizes',
   GROUP_PRIZE_REDEMPTIONS: 'groupPrizeRedemptions',
+  PRIZE_REDEMPTION_APPLICATIONS: 'prizeRedemptionApplications',
   NOTIFICATIONS: 'notifications',
   ACTIVITIES: 'activities',
   TEST: 'test',

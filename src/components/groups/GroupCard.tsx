@@ -129,9 +129,12 @@ const GroupCard: React.FC<GroupCardProps> = ({
                     size="sm" 
                     variant="outline"
                     onClick={onPrizeManagement}
-                    className="text-xs flex items-center justify-center"
+                    className="text-xs flex items-center justify-center relative"
                   >
                     🏆 Prizes
+                    {pendingItems.some(item => item.actionType === 'prize-applications') && (
+                      <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+                    )}
                   </Button>
                   <Button 
                     size="sm" 

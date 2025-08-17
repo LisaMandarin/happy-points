@@ -351,6 +351,35 @@ export interface CreatePrizeRedemptionData {
   userName: string
 }
 
+export interface PrizeRedemptionApplication {
+  id: string
+  groupId: string
+  groupName: string
+  prizeId?: string
+  prizeTitle: string
+  prizeDescription: string
+  pointsCost: number
+  userId: string
+  userName: string
+  status: 'pending' | 'approved' | 'rejected'
+  approvedBy?: string
+  approvedByName?: string
+  approvedAt?: Date | Timestamp
+  rejectionReason?: string
+  createdAt: Date | Timestamp
+}
+
+export interface CreatePrizeRedemptionApplicationData {
+  groupId: string
+  groupName: string
+  prizeId?: string
+  prizeTitle: string
+  prizeDescription: string
+  pointsCost: number
+  userId: string
+  userName: string
+}
+
 export interface PrizeFormData {
   title: string
   description: string
