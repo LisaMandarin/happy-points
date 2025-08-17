@@ -26,7 +26,11 @@ import {
   CreatePenaltyData,
   GroupPenaltyType,
   CreatePenaltyTypeData,
-  UpdatePenaltyTypeData
+  UpdatePenaltyTypeData,
+  GroupPrize,
+  CreatePrizeData,
+  UpdatePrizeData,
+  CreatePrizeRedemptionData
 } from '@/types'
 import { COLLECTIONS, DEFAULT_VALUES, ERROR_MESSAGES } from '@/lib/constants'
 
@@ -385,6 +389,154 @@ export const updateGroupPenaltyType = async (
   } catch (error) {
     console.error('Error updating penalty type:', error)
     throw new Error('Failed to update penalty type')
+  }
+}
+
+// Prize operations
+/**
+ * Create a prize for a group
+ */
+export const createGroupPrize = async (
+  prizeData: CreatePrizeData
+): Promise<string> => {
+  const { groupId, groupName, title, description, pointsCost, createdBy, createdByName } = prizeData
+  
+  if (pointsCost <= 0) {
+    throw new Error('Prize cost must be positive')
+  }
+
+  try {
+    const prizesRef = collection(db, COLLECTIONS.GROUP_PRIZES)
+    const prizeDocRef = await addDoc(prizesRef, {
+      groupId,
+      groupName,
+      title: title.trim(),
+      description: description.trim(),
+      pointsCost,
+      isActive: true,
+      createdBy,
+      createdByName,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+
+    return prizeDocRef.id
+  } catch (error) {
+    console.error('Error creating group prize:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to create prize')
+  }
+}
+
+/**
+ * Get prizes for a group
+ */
+export const getGroupPrizes = async (
+  groupId: string,
+  limitCount = DEFAULT_VALUES.PAGINATION.DEFAULT_LIMIT
+): Promise<GroupPrize[]> => {
+  try {
+    const prizesRef = collection(db, COLLECTIONS.GROUP_PRIZES)
+    const q = query(
+      prizesRef,
+      where('groupId', '==', groupId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    )
+    
+    const querySnapshot = await getDocs(q)
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as GroupPrize[]
+  } catch (error) {
+    console.error('Error fetching group prizes:', error)
+    return []
+  }
+}
+
+/**
+ * Update a prize
+ */
+export const updateGroupPrize = async (
+  prizeId: string, 
+  updateData: UpdatePrizeData
+): Promise<void> => {
+  try {
+    const prizeRef = doc(db, COLLECTIONS.GROUP_PRIZES, prizeId)
+    await updateDoc(prizeRef, {
+      ...updateData,
+      updatedAt: serverTimestamp(),
+    } as any)
+  } catch (error) {
+    console.error('Error updating prize:', error)
+    throw new Error('Failed to update prize')
+  }
+}
+
+/**
+ * Delete a prize
+ */
+export const deleteGroupPrize = async (prizeId: string): Promise<void> => {
+  try {
+    const prizeRef = doc(db, COLLECTIONS.GROUP_PRIZES, prizeId)
+    await deleteDoc(prizeRef)
+  } catch (error) {
+    console.error('Error deleting prize:', error)
+    throw new Error('Failed to delete prize')
+  }
+}
+
+/**
+ * Add a prize redemption and deduct points from user
+ */
+export const addGroupPrizeRedemption = async (
+  redemptionData: CreatePrizeRedemptionData
+): Promise<string> => {
+  const { groupId, userId, pointsCost } = redemptionData
+
+  if (pointsCost <= 0) {
+    throw new Error('Prize cost must be positive')
+  }
+
+  try {
+    // Check if user has enough points in the group
+    const { getGroupMembers } = await import('@/lib/groups')
+    const members = await getGroupMembers(groupId)
+    const userMember = members.find((m: any) => m.userId === userId)
+    
+    if (!userMember) {
+      throw new Error('User is not a member of this group')
+    }
+
+    const currentPoints = (userMember.pointsEarned || 0) - (userMember.pointsRedeemed || 0)
+    if (currentPoints < pointsCost) {
+      throw new Error(`Insufficient points. You have ${currentPoints} points but need ${pointsCost} points.`)
+    }
+
+    // Create redemption record
+    const redemptionsRef = collection(db, COLLECTIONS.GROUP_PRIZE_REDEMPTIONS)
+    const redemptionDocRef = await addDoc(redemptionsRef, {
+      ...redemptionData,
+      createdAt: serverTimestamp(),
+    })
+
+    // Update user's redeemed points in the group
+    const memberRef = doc(db, COLLECTIONS.GROUP_MEMBERS, userMember.id)
+    await updateDoc(memberRef, {
+      pointsRedeemed: increment(pointsCost),
+      updatedAt: serverTimestamp()
+    })
+
+    return redemptionDocRef.id
+  } catch (error) {
+    console.error('Error redeeming prize:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to redeem prize')
   }
 }
 

@@ -295,6 +295,69 @@ export interface TaskFormData {
   general?: string
 }
 
+// Prize types
+export interface GroupPrize {
+  id: string
+  groupId: string
+  groupName: string
+  title: string
+  description: string
+  pointsCost: number
+  isActive: boolean
+  createdBy: string
+  createdByName: string
+  createdAt: Date | Timestamp
+  updatedAt: Date | Timestamp
+}
+
+export interface CreatePrizeData {
+  groupId: string
+  groupName: string
+  title: string
+  description: string
+  pointsCost: number
+  createdBy: string
+  createdByName: string
+}
+
+export interface UpdatePrizeData {
+  title?: string
+  description?: string
+  pointsCost?: number
+  isActive?: boolean
+}
+
+export interface GroupPrizeRedemption {
+  id: string
+  groupId: string
+  groupName: string
+  prizeId: string
+  prizeTitle: string
+  prizeDescription: string
+  pointsCost: number
+  userId: string
+  userName: string
+  createdAt: Date | Timestamp
+}
+
+export interface CreatePrizeRedemptionData {
+  groupId: string
+  groupName: string
+  prizeId: string
+  prizeTitle: string
+  prizeDescription: string
+  pointsCost: number
+  userId: string
+  userName: string
+}
+
+export interface PrizeFormData {
+  title: string
+  description: string
+  pointsCost: string
+  general?: string
+}
+
 export const AUTH_ERRORS = {
   POPUP_CLOSED: 'auth/popup-closed-by-user',
   POPUP_BLOCKED: 'auth/popup-blocked',

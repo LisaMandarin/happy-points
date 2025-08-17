@@ -9,6 +9,8 @@ export const COLLECTIONS = {
   TASK_COMPLETIONS: 'taskCompletions',
   GROUP_PENALTIES: 'groupPenalties',
   GROUP_PENALTY_TYPES: 'groupPenaltyTypes',
+  GROUP_PRIZES: 'groupPrizes',
+  GROUP_PRIZE_REDEMPTIONS: 'groupPrizeRedemptions',
   NOTIFICATIONS: 'notifications',
   ACTIVITIES: 'activities',
   TEST: 'test',

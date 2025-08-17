@@ -31,6 +31,9 @@ import PenaltyModal from '@/components/groups/PenaltyModal'
 import PenaltyManagementModal from '@/components/groups/PenaltyManagementModal'
 import PenaltyApplicationModal from '@/components/groups/PenaltyApplicationModal'
 import QuickPenaltyApplicationModal from '@/components/groups/QuickPenaltyApplicationModal'
+import RedeemPrizesModal from '@/components/groups/RedeemPrizesModal'
+import PrizeManagementModal from '@/components/groups/PrizeManagementModal'
+import ViewPrizesModal from '@/components/groups/ViewPrizesModal'
 import { useUserGroupPointsBreakdown } from '@/hooks/useUserGroupPointsBreakdown'
 import { Button, Alert } from 'antd'
 
@@ -43,7 +46,10 @@ export default function Dashboard() {
   const { data: groups = [], isLoading: loadingGroups } = useUserGroups(user?.uid)
   const { data: notifications = [], isLoading: loadingNotifications } = useUserNotifications(user?.uid, 5)
   const { data: pendingItems = [] } = useUserPendingItems(user?.uid, groups)
-  const { groupBreakdown, overallTotals, isLoading: loadingGroupBreakdown } = useUserGroupPointsBreakdown(user?.uid, groups)
+  
+  // Filter groups by user's role - only include groups where user is a member (not admin)
+  const memberGroups = groups.filter(group => group.adminId !== user?.uid)
+  const { groupBreakdown, overallTotals, isLoading: loadingGroupBreakdown } = useUserGroupPointsBreakdown(user?.uid, memberGroups)
 
   // Mutations
   const createGroupMutation = useCreateGroup()
@@ -64,6 +70,9 @@ export default function Dashboard() {
   const [showPenaltyManagementModal, setShowPenaltyManagementModal] = useState(false)
   const [showPenaltyApplicationModal, setShowPenaltyApplicationModal] = useState(false)
   const [showQuickPenaltyApplicationModal, setShowQuickPenaltyApplicationModal] = useState(false)
+  const [showRedeemPrizesModal, setShowRedeemPrizesModal] = useState(false)
+  const [showPrizeManagementModal, setShowPrizeManagementModal] = useState(false)
+  const [showViewPrizesModal, setShowViewPrizesModal] = useState(false)
   
   const [selectedGroup, setSelectedGroup] = useState<Group | null>(null)
   const [selectedTask, setSelectedTask] = useState<any>(null)
@@ -128,6 +137,12 @@ export default function Dashboard() {
         break
       case 'view-penalties':
         setShowPenaltyManagementModal(true)
+        break
+      case 'prize-management':
+        setShowPrizeManagementModal(true)
+        break
+      case 'view-prizes':
+        setShowViewPrizesModal(true)
         break
       default:
         console.warn('Unknown modal type:', modalType)
@@ -265,6 +280,39 @@ export default function Dashboard() {
     })
   }
 
+  const handleRedeemPrize = async (groupId: string, description: string, amount: number) => {
+    if (!userProfile) {
+      throw new Error('User profile not available')
+    }
+
+    try {
+      const { addPointsTransaction } = await import('@/lib/firestore')
+      
+      // Find the group name for the transaction description
+      const group = memberGroups.find(g => g.id === groupId)
+      const groupName = group ? group.name : 'Unknown Group'
+      
+      // Create the redemption transaction
+      await addPointsTransaction({
+        userId: userProfile.id,
+        type: 'redeem',
+        amount,
+        description: `Prize redeemed in ${groupName}: ${description}`
+      })
+
+      // Refresh user profile to update points
+      await refreshProfile()
+      
+      setSuccessMessage(`Successfully redeemed: ${description}`)
+      clearMessages()
+    } catch (error) {
+      console.error('Error redeeming prize:', error)
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to redeem prize. Please try again.')
+      clearMessages()
+      throw error
+    }
+  }
+
   const handleQuickApplyPenalty = async (memberId: string, penaltyTypeId: string, reason?: string, groupId?: string) => {
     if (!groupId || !userProfile) {
       throw new Error('Group ID or user profile not available')
@@ -315,6 +363,9 @@ export default function Dashboard() {
     setShowPenaltyManagementModal(false)
     setShowPenaltyApplicationModal(false)
     setShowQuickPenaltyApplicationModal(false)
+    setShowRedeemPrizesModal(false)
+    setShowPrizeManagementModal(false)
+    setShowViewPrizesModal(false)
     setSelectedGroup(null)
     setSelectedTask(null)
     setSelectedMember(null)
@@ -335,7 +386,6 @@ export default function Dashboard() {
 
   // Separate groups by user's role
   const adminGroups = groups.filter(group => group.adminId === user?.uid)
-  const memberGroups = groups.filter(group => group.adminId !== user?.uid)
   const isAdminOfAnyGroup = adminGroups.length > 0
   const isMemberOfAnyGroup = memberGroups.length > 0
 
@@ -405,7 +455,7 @@ export default function Dashboard() {
                   </div>
                   
                   {/* Group Breakdown Section */}
-                  {groups.length > 0 && !loadingGroupBreakdown ? (
+                  {memberGroups.length > 0 && !loadingGroupBreakdown ? (
                     <div className="mt-6">
                       <div className="mb-3">
                         <span className="text-sm font-medium text-gray-700">
@@ -477,16 +527,25 @@ export default function Dashboard() {
                         
                         {/* Claim Points button - only for groups where user is member but not admin */}
                         {isMemberOfAnyGroup && (
-                          <Button 
-                            onClick={() => setShowTaskApplicationModal(true)}
-                            className="w-full relative"
-                            type={isAdminOfAnyGroup ? "default" : "primary"}
-                          >
-                            🏆 Claim Points
-                            {pendingItems.some(item => item.type === 'user') && (
-                              <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
-                            )}
-                          </Button>
+                          <>
+                            <Button 
+                              onClick={() => setShowTaskApplicationModal(true)}
+                              className="w-full relative"
+                              type={isAdminOfAnyGroup ? "default" : "primary"}
+                            >
+                              🏆 Claim Points
+                              {pendingItems.some(item => item.type === 'user') && (
+                                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></span>
+                              )}
+                            </Button>
+                            <Button 
+                              onClick={() => setShowRedeemPrizesModal(true)}
+                              className="w-full relative"
+                              type="default"
+                            >
+                              🎁 Redeem Prizes
+                            </Button>
+                          </>
                         )}
                         
                         {/* Show helpful info about what each button does */}
@@ -498,7 +557,10 @@ export default function Dashboard() {
                             </>
                           )}
                           {isMemberOfAnyGroup && (
-                            <p>• Claim Points: Apply for tasks in groups where you're a member ({memberGroups.length} group{memberGroups.length !== 1 ? 's' : ''})</p>
+                            <>
+                              <p>• Claim Points: Apply for tasks in groups where you're a member ({memberGroups.length} group{memberGroups.length !== 1 ? 's' : ''})</p>
+                              <p>• Redeem Prizes: Use your points to redeem rewards and prizes</p>
+                            </>
                           )}
                         </div>
                       </>
@@ -548,6 +610,8 @@ export default function Dashboard() {
                         onAwardPoints={() => openGroupModal(group, 'award-points')}
                         onPenaltyManagement={() => openGroupModal(group, 'penalty-management')}
                         onApplyPenalties={() => openGroupModal(group, 'apply-penalties')}
+                        onPrizeManagement={() => openGroupModal(group, 'prize-management')}
+                        onPrizeRedemption={() => openGroupModal(group, 'view-prizes')}
                       />
                     ))}
                   </div>
@@ -832,6 +896,60 @@ export default function Dashboard() {
         currentUserId={user?.uid || ''}
         onApplyPenalty={handleQuickApplyPenalty}
       />
+
+      <RedeemPrizesModal
+        isOpen={showRedeemPrizesModal}
+        onClose={() => setShowRedeemPrizesModal(false)}
+        memberGroups={memberGroups}
+        currentUser={userProfile}
+        onRedeemPrize={handleRedeemPrize}
+      />
+
+      {selectedGroup && (
+        <PrizeManagementModal
+          isOpen={showPrizeManagementModal}
+          onClose={() => setShowPrizeManagementModal(false)}
+          group={selectedGroup}
+          currentUser={userProfile}
+        />
+      )}
+
+      {selectedGroup && (
+        <ViewPrizesModal
+          isOpen={showViewPrizesModal}
+          onClose={() => setShowViewPrizesModal(false)}
+          group={selectedGroup}
+          currentUser={userProfile}
+          onRedeemPrize={async (prize) => {
+            try {
+              const { addGroupPrizeRedemption } = await import('@/lib/firestore')
+              
+              if (!userProfile?.id) {
+                throw new Error('User profile not available')
+              }
+
+              await addGroupPrizeRedemption({
+                groupId: selectedGroup.id,
+                groupName: selectedGroup.name,
+                prizeId: prize.id,
+                prizeTitle: prize.title,
+                prizeDescription: prize.description,
+                pointsCost: prize.pointsCost,
+                userId: userProfile.id,
+                userName: userProfile.name
+              })
+
+              setSuccessMessage(`Successfully redeemed: ${prize.title}`)
+              clearMessages()
+              closeModals()
+            } catch (error) {
+              console.error('Error redeeming prize:', error)
+              setErrorMessage(error instanceof Error ? error.message : 'Failed to redeem prize. Please try again.')
+              clearMessages()
+            }
+          }}
+        />
+      )}
 
     </div>
   )
