@@ -1,0 +1,66 @@
+{
+  "appName": "快乐积分",
+  "appDescription": "存储和兑换您的积分",
+  "navigation": {
+    "profileSettings": "个人资料设置",
+    "signOut": "登出"
+  },
+  "dashboard": {
+    "title": "您的群组",
+    "createGroup": "创建群组",
+    "quickActions": "快速操作",
+    "awardPoints": "奖励积分",
+    "applyPenalty": "施加惩罚",
+    "claimPoints": "申请积分",
+    "applyForPrizes": "申请奖品",
+    "recentTransactions": "最近交易",
+    "recentNotifications": "最近通知",
+    "pointsByGroup": "按群组分积分",
+    "current": "当前",
+    "earned": "已获得",
+    "redeemed": "已兑换"
+  },
+  "groups": {
+    "noGroupsYet": "您还不是任何群组的成员。",
+    "getStarted": "创建或加入群组开始吧！",
+    "loadingGroups": "加载群组中..."
+  },
+  "transactions": {
+    "noTransactions": "暂无交易记录。",
+    "loadingTransactions": "加载交易中...",
+    "points": "积分",
+    "penalty": "惩罚"
+  },
+  "notifications": {
+    "noNotifications": "暂无通知。",
+    "loadingNotifications": "加载通知中..."
+  },
+  "loading": {
+    "groupBreakdown": "加载群组明细中..."
+  },
+  "buttons": {
+    "close": "关闭",
+    "save": "保存",
+    "cancel": "取消",
+    "submit": "提交",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "创建",
+    "invite": "邀请",
+    "approve": "批准",
+    "reject": "拒绝"
+  },
+  "language": {
+    "selectLanguage": "选择语言",
+    "english": "English",
+    "spanish": "Español",
+    "french": "Français", 
+    "german": "Deutsch",
+    "japanese": "日本語",
+    "chinese": "中文",
+    "portuguese": "Português",
+    "italian": "Italiano",
+    "russian": "Русский",
+    "korean": "한국어"
+  }
+}

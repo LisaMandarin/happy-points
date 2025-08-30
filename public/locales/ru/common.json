@@ -1,0 +1,66 @@
+{
+  "appName": "Happy Points",
+  "appDescription": "Store and redeem your points",
+  "navigation": {
+    "profileSettings": "Profile Settings",
+    "signOut": "Sign Out"
+  },
+  "dashboard": {
+    "title": "Your Groups",
+    "createGroup": "Create Group",
+    "quickActions": "Quick Actions",
+    "awardPoints": "Award Points",
+    "applyPenalty": "Apply Penalty",
+    "claimPoints": "Claim Points",
+    "applyForPrizes": "Apply for Prizes",
+    "recentTransactions": "Recent Transactions",
+    "recentNotifications": "Recent Notifications",
+    "pointsByGroup": "Points by Group",
+    "current": "Current",
+    "earned": "Earned",
+    "redeemed": "Redeemed"
+  },
+  "groups": {
+    "noGroupsYet": "You're not part of any groups yet.",
+    "getStarted": "Create or join a group to get started!",
+    "loadingGroups": "Loading groups..."
+  },
+  "transactions": {
+    "noTransactions": "No transactions yet.",
+    "loadingTransactions": "Loading transactions...",
+    "points": "points",
+    "penalty": "Penalty"
+  },
+  "notifications": {
+    "noNotifications": "No notifications yet.",
+    "loadingNotifications": "Loading notifications..."
+  },
+  "loading": {
+    "groupBreakdown": "Loading group breakdown..."
+  },
+  "buttons": {
+    "close": "Close",
+    "save": "Save",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "invite": "Invite",
+    "approve": "Approve",
+    "reject": "Reject"
+  },
+  "language": {
+    "selectLanguage": "Select Language",
+    "english": "English",
+    "spanish": "Español",
+    "french": "Français", 
+    "german": "Deutsch",
+    "japanese": "日本語",
+    "chinese": "中文",
+    "portuguese": "Português",
+    "italian": "Italiano",
+    "russian": "Русский",
+    "korean": "한국어"
+  }
+}

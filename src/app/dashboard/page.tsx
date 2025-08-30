@@ -36,10 +36,13 @@ import PrizeManagementModal from '@/components/groups/PrizeManagementModal'
 import ViewPrizesModal from '@/components/groups/ViewPrizesModal'
 import { useUserGroupPointsBreakdown } from '@/hooks/useUserGroupPointsBreakdown'
 import { Button, Alert } from 'antd'
+import { useTranslation } from 'react-i18next'
+import LanguageDropdown from '@/components/ui/LanguageDropdown'
 
 export default function Dashboard() {
   const { user, userProfile, loading, refreshProfile } = useAuth()
   const router = useRouter()
+  const { t } = useTranslation('common')
 
   // React Query hooks for data fetching
   const { data: transactions = [], isLoading: loadingTransactions } = useUserTransactions(user?.uid, 5)
@@ -396,14 +399,15 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Happy Points</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{t('appName')}</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <LanguageDropdown />
               <Button onClick={() => setShowProfileModal(true)}>
-                Profile Settings
+                {t('navigation.profileSettings')}
               </Button>
               <Button onClick={handleSignOut} type="primary" danger>
-                Sign Out
+                {t('navigation.signOut')}
               </Button>
             </div>
           </div>
@@ -497,7 +501,7 @@ export default function Dashboard() {
               {/* Quick Actions */}
               <div className="mt-6 bg-white overflow-hidden shadow rounded-lg">
                 <div className="p-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">{t('dashboard.quickActions')}</h3>
                   <div className="space-y-2">
                     {groups.length === 0 ? (
                       <div className="text-center py-4 text-gray-500">
@@ -583,13 +587,13 @@ export default function Dashboard() {
               {/* Groups Section */}
               <div className="mb-8">
                 <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900">Your Groups</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">{t('dashboard.title')}</h2>
                   <Button 
                     onClick={() => setShowCreateGroupModal(true)}
                     type="primary"
                     className="flex items-center"
                   >
-                    <span className="text-white mr-1">+</span> Create Group
+                    <span className="text-white mr-1">+</span> {t('dashboard.createGroup')}
                   </Button>
                 </div>
                 {loadingGroups ? (
@@ -621,7 +625,7 @@ export default function Dashboard() {
 
               {/* Recent Transactions */}
               <div className="mb-8">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Transactions</h2>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('dashboard.recentTransactions')}</h2>
                 {loadingTransactions ? (
                   <div className="text-center py-4">Loading transactions...</div>
                 ) : transactions.length === 0 ? (
@@ -662,7 +666,7 @@ export default function Dashboard() {
 
               {/* Recent Notifications */}
               <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Recent Notifications</h2>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('dashboard.recentNotifications')}</h2>
                 {loadingNotifications ? (
                   <div className="text-center py-4">Loading notifications...</div>
                 ) : notifications.length === 0 ? (

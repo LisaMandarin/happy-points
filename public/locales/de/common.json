@@ -1,0 +1,66 @@
+{
+  "appName": "Glückspunkte",
+  "appDescription": "Sammeln und einlösen Sie Ihre Punkte",
+  "navigation": {
+    "profileSettings": "Profileinstellungen",
+    "signOut": "Abmelden"
+  },
+  "dashboard": {
+    "title": "Ihre Gruppen",
+    "createGroup": "Gruppe Erstellen",
+    "quickActions": "Schnellaktionen",
+    "awardPoints": "Punkte Vergeben",
+    "applyPenalty": "Strafe Anwenden",
+    "claimPoints": "Punkte Beanspruchen",
+    "applyForPrizes": "Für Preise Bewerben",
+    "recentTransactions": "Kürzliche Transaktionen",
+    "recentNotifications": "Kürzliche Benachrichtigungen",
+    "pointsByGroup": "Punkte nach Gruppe",
+    "current": "Aktuell",
+    "earned": "Verdient",
+    "redeemed": "Eingelöst"
+  },
+  "groups": {
+    "noGroupsYet": "Sie sind noch nicht Mitglied einer Gruppe.",
+    "getStarted": "Erstellen oder treten Sie einer Gruppe bei, um zu beginnen!",
+    "loadingGroups": "Lade Gruppen..."
+  },
+  "transactions": {
+    "noTransactions": "Noch keine Transaktionen.",
+    "loadingTransactions": "Lade Transaktionen...",
+    "points": "Punkte",
+    "penalty": "Strafe"
+  },
+  "notifications": {
+    "noNotifications": "Noch keine Benachrichtigungen.",
+    "loadingNotifications": "Lade Benachrichtigungen..."
+  },
+  "loading": {
+    "groupBreakdown": "Lade Gruppenaufschlüsselung..."
+  },
+  "buttons": {
+    "close": "Schließen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "submit": "Senden",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "invite": "Einladen",
+    "approve": "Genehmigen",
+    "reject": "Ablehnen"
+  },
+  "language": {
+    "selectLanguage": "Sprache Wählen",
+    "english": "English",
+    "spanish": "Español",
+    "french": "Français", 
+    "german": "Deutsch",
+    "japanese": "日本語",
+    "chinese": "中文",
+    "portuguese": "Português",
+    "italian": "Italiano",
+    "russian": "Русский",
+    "korean": "한국어"
+  }
+}

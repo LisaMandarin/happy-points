@@ -1,0 +1,66 @@
+{
+  "appName": "Puntos Felices",
+  "appDescription": "Almacena y canjea tus puntos",
+  "navigation": {
+    "profileSettings": "Configuración del Perfil",
+    "signOut": "Cerrar Sesión"
+  },
+  "dashboard": {
+    "title": "Tus Grupos",
+    "createGroup": "Crear Grupo",
+    "quickActions": "Acciones Rápidas",
+    "awardPoints": "Otorgar Puntos",
+    "applyPenalty": "Aplicar Penalización",
+    "claimPoints": "Reclamar Puntos",
+    "applyForPrizes": "Solicitar Premios",
+    "recentTransactions": "Transacciones Recientes",
+    "recentNotifications": "Notificaciones Recientes",
+    "pointsByGroup": "Puntos por Grupo",
+    "current": "Actuales",
+    "earned": "Ganados",
+    "redeemed": "Canjeados"
+  },
+  "groups": {
+    "noGroupsYet": "Aún no formas parte de ningún grupo.",
+    "getStarted": "¡Crea o únete a un grupo para empezar!",
+    "loadingGroups": "Cargando grupos..."
+  },
+  "transactions": {
+    "noTransactions": "Aún no hay transacciones.",
+    "loadingTransactions": "Cargando transacciones...",
+    "points": "puntos",
+    "penalty": "Penalización"
+  },
+  "notifications": {
+    "noNotifications": "Aún no hay notificaciones.",
+    "loadingNotifications": "Cargando notificaciones..."
+  },
+  "loading": {
+    "groupBreakdown": "Cargando desglose del grupo..."
+  },
+  "buttons": {
+    "close": "Cerrar",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "submit": "Enviar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "invite": "Invitar",
+    "approve": "Aprobar",
+    "reject": "Rechazar"
+  },
+  "language": {
+    "selectLanguage": "Seleccionar Idioma",
+    "english": "English",
+    "spanish": "Español",
+    "french": "Français", 
+    "german": "Deutsch",
+    "japanese": "日本語",
+    "chinese": "中文",
+    "portuguese": "Português",
+    "italian": "Italiano",
+    "russian": "Русский",
+    "korean": "한국어"
+  }
+}

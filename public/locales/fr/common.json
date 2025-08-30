@@ -1,0 +1,66 @@
+{
+  "appName": "Points Joyeux",
+  "appDescription": "Stockez et échangez vos points",
+  "navigation": {
+    "profileSettings": "Paramètres du Profil",
+    "signOut": "Se Déconnecter"
+  },
+  "dashboard": {
+    "title": "Vos Groupes",
+    "createGroup": "Créer un Groupe",
+    "quickActions": "Actions Rapides",
+    "awardPoints": "Attribuer des Points",
+    "applyPenalty": "Appliquer une Pénalité",
+    "claimPoints": "Réclamer des Points",
+    "applyForPrizes": "Demander des Prix",
+    "recentTransactions": "Transactions Récentes",
+    "recentNotifications": "Notifications Récentes",
+    "pointsByGroup": "Points par Groupe",
+    "current": "Actuels",
+    "earned": "Gagnés",
+    "redeemed": "Échangés"
+  },
+  "groups": {
+    "noGroupsYet": "Vous ne faites encore partie d'aucun groupe.",
+    "getStarted": "Créez ou rejoignez un groupe pour commencer!",
+    "loadingGroups": "Chargement des groupes..."
+  },
+  "transactions": {
+    "noTransactions": "Aucune transaction pour le moment.",
+    "loadingTransactions": "Chargement des transactions...",
+    "points": "points",
+    "penalty": "Pénalité"
+  },
+  "notifications": {
+    "noNotifications": "Aucune notification pour le moment.",
+    "loadingNotifications": "Chargement des notifications..."
+  },
+  "loading": {
+    "groupBreakdown": "Chargement de la répartition du groupe..."
+  },
+  "buttons": {
+    "close": "Fermer",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "submit": "Soumettre",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "create": "Créer",
+    "invite": "Inviter",
+    "approve": "Approuver",
+    "reject": "Rejeter"
+  },
+  "language": {
+    "selectLanguage": "Choisir la Langue",
+    "english": "English",
+    "spanish": "Español",
+    "french": "Français", 
+    "german": "Deutsch",
+    "japanese": "日本語",
+    "chinese": "中文",
+    "portuguese": "Português",
+    "italian": "Italiano",
+    "russian": "Русский",
+    "korean": "한국어"
+  }
+}
