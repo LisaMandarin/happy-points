@@ -548,7 +548,7 @@ export const addGroupPrizeRedemption = async (
 export const createPrizeRedemptionApplication = async (
   applicationData: CreatePrizeRedemptionApplicationData
 ): Promise<string> => {
-  const { groupId, userId, pointsCost } = applicationData
+  const { groupId, userId, pointsCost, prizeTitle } = applicationData
 
   if (pointsCost <= 0) {
     throw new Error('Prize cost must be positive')
@@ -567,6 +567,18 @@ export const createPrizeRedemptionApplication = async (
     const currentPoints = (userMember.pointsEarned || 0) - (userMember.pointsRedeemed || 0)
     if (currentPoints < pointsCost) {
       throw new Error(`Insufficient points. You have ${currentPoints} points but need ${pointsCost} points.`)
+    }
+
+    // Check if user already has a pending application for the same prize in this group
+    const existingApplications = await getGroupPrizeRedemptionApplications(groupId)
+    const userPendingApplication = existingApplications.find(app => 
+      app.userId === userId && 
+      app.status === 'pending' && 
+      app.prizeTitle === prizeTitle
+    )
+
+    if (userPendingApplication) {
+      throw new Error(`You already have a pending application for "${prizeTitle}". Please wait for admin approval before applying again.`)
     }
 
     // Create application record
@@ -611,6 +623,34 @@ export const getGroupPrizeRedemptionApplications = async (
   } catch (error) {
     console.error('Error getting redemption applications:', error)
     throw new Error('Failed to get redemption applications')
+  }
+}
+
+/**
+ * Get user's pending prize redemption applications across all groups
+ */
+export const getUserPendingPrizeApplications = async (
+  userId: string
+): Promise<PrizeRedemptionApplication[]> => {
+  try {
+    const applicationsRef = collection(db, COLLECTIONS.PRIZE_REDEMPTION_APPLICATIONS)
+    const q = query(
+      applicationsRef,
+      where('userId', '==', userId),
+      where('status', '==', 'pending'),
+      orderBy('createdAt', 'desc')
+    )
+    
+    const snapshot = await getDocs(q)
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+      approvedAt: doc.data().approvedAt?.toDate() || undefined,
+    })) as PrizeRedemptionApplication[]
+  } catch (error) {
+    console.error('Error getting user pending applications:', error)
+    return []
   }
 }
 

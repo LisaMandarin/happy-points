@@ -11,12 +11,14 @@ interface PendingActionsPanelProps {
   currentUser: UserProfile | null
   groups: Group[]
   onViewApplications?: (group: Group) => void
+  onViewPrizeApplications?: (group: Group) => void
 }
 
 const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({
   currentUser,
   groups,
-  onViewApplications
+  onViewApplications,
+  onViewPrizeApplications
 }) => {
   const { data: pendingItems = [], isLoading } = useUserPendingItems(currentUser?.id, groups)
 
@@ -91,6 +93,15 @@ const PendingActionsPanel: React.FC<PendingActionsPanelProps> = ({
                           size="small" 
                           type="primary"
                           onClick={() => item.group && onViewApplications?.(item.group)}
+                        >
+                          Review
+                        </Button>
+                      )}
+                      {item.actionType === 'prize-applications' && (
+                        <Button 
+                          size="small" 
+                          type="primary"
+                          onClick={() => item.group && onViewPrizeApplications?.(item.group)}
                         >
                           Review
                         </Button>

@@ -9,7 +9,7 @@ export interface PendingItem {
   type: 'admin' | 'user'
   title: string
   description: string
-  actionType: 'task-applications' | 'group-invitation'
+  actionType: 'task-applications' | 'group-invitation' | 'prize-applications'
   groupName?: string
   group?: Group
   createdAt: Date
@@ -31,22 +31,54 @@ export function useUserPendingItems(userId?: string, groups: Group[] = []) {
         try {
           // Check for pending task applications
           const taskApplications = await getGroupTaskCompletions(group.id)
-          const pendingApplications = taskApplications.filter(app => app.status === 'pending')
+          const pendingTaskApplications = taskApplications.filter(app => app.status === 'pending')
           
-          if (pendingApplications.length > 0) {
+          if (pendingTaskApplications.length > 0) {
             pendingItems.push({
               type: 'admin',
-              title: `${pendingApplications.length} Task Application${pendingApplications.length > 1 ? 's' : ''}`,
+              title: `${pendingTaskApplications.length} Task Application${pendingTaskApplications.length > 1 ? 's' : ''}`,
               description: `Members have applied for tasks in ${group.name}`,
               actionType: 'task-applications',
               groupName: group.name,
               group,
-              createdAt: new Date(Math.max(...pendingApplications.map(app => {
+              createdAt: new Date(Math.max(...pendingTaskApplications.map(app => {
                 const date = app.completedAt instanceof Date ? app.completedAt : app.completedAt.toDate()
                 return date.getTime()
               }))),
-              count: pendingApplications.length
+              count: pendingTaskApplications.length
             })
+          }
+
+          // Check for pending prize redemption applications
+          try {
+            const { getGroupPrizeRedemptionApplications } = await import('@/lib/firestore')
+            const prizeApplications = await getGroupPrizeRedemptionApplications(group.id)
+            const pendingPrizeApplications = prizeApplications.filter(app => app.status === 'pending')
+            
+            if (pendingPrizeApplications.length > 0) {
+              pendingItems.push({
+                type: 'admin',
+                title: `${pendingPrizeApplications.length} Prize Application${pendingPrizeApplications.length > 1 ? 's' : ''}`,
+                description: `Members have applied for prize redemptions in ${group.name}`,
+                actionType: 'prize-applications',
+                groupName: group.name,
+                group,
+                createdAt: new Date(Math.max(...pendingPrizeApplications.map(app => {
+                  let date: Date
+                  if (app.createdAt instanceof Date) {
+                    date = app.createdAt
+                  } else if (app.createdAt && typeof app.createdAt === 'object' && 'toDate' in app.createdAt) {
+                    date = (app.createdAt as any).toDate()
+                  } else {
+                    date = new Date()
+                  }
+                  return date.getTime()
+                }))),
+                count: pendingPrizeApplications.length
+              })
+            }
+          } catch (prizeError) {
+            console.error(`Error fetching pending prize applications for group ${group.id}:`, prizeError)
           }
         } catch (error) {
           console.error(`Error fetching pending items for group ${group.id}:`, error)

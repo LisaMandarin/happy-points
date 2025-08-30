@@ -577,6 +577,7 @@ export default function Dashboard() {
                 currentUser={userProfile}
                 groups={groups}
                 onViewApplications={(group) => openGroupModal(group, 'task-management')}
+                onViewPrizeApplications={(group) => openGroupModal(group, 'prize-management')}
               />
 
               {/* Groups Section */}
